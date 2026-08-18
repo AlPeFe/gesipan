@@ -37,6 +37,7 @@ pub struct Note {
     pub tags: String,  // etiquetas separadas por comas (metadata opcional)
     pub private: bool, // si es privada (el toggle global la difumina)
     pub created_at: String,
+    pub group_id: Option<i64>, // grupo al que está anclada (si lo está)
 }
 
 /// Conexión ("flecha") entre dos notas. `from_anchor`/`to_anchor` indican el
@@ -110,7 +111,8 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             tags     TEXT NOT NULL DEFAULT '',
             private  INTEGER NOT NULL DEFAULT 0,
             deleted  INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL
         );
 
         CREATE TABLE IF NOT EXISTS connections (
@@ -200,6 +202,11 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             "ALTER TABLE notes ADD COLUMN created_at TEXT NOT NULL DEFAULT '';",
         )?;
     }
+    if !cols.iter().any(|c| c == "group_id") {
+        conn.execute_batch(
+            "ALTER TABLE notes ADD COLUMN group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL;",
+        )?;
+    }
     let bm_cols: Vec<String> = conn
         .prepare("SELECT name FROM pragma_table_info('bookmarks')")?
         .query_map([], |r| r.get::<_, String>(0))?
@@ -279,12 +286,13 @@ fn row_to_note(r: &rusqlite::Row) -> rusqlite::Result<Note> {
         tags: r.get(10)?,
         private: r.get::<_, i64>(11)? != 0,
         created_at: r.get(12)?,
+        group_id: r.get(13)?,
     })
 }
 
 pub fn list_notes(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at, group_id
          FROM notes WHERE board_id = ?1 AND deleted = 0 ORDER BY z, id",
     )?;
     let rows = stmt.query_map(params![board_id], row_to_note)?;
@@ -293,7 +301,7 @@ pub fn list_notes(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Note>>
 
 pub fn get_note(conn: &Connection, id: i64) -> anyhow::Result<Option<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at, group_id
          FROM notes WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], row_to_note)?;
@@ -323,11 +331,11 @@ pub fn create_note(
     Ok(get_note(conn, id)?.expect("just inserted"))
 }
 
-/// Actualiza campos mutables de una nota (posición, tamaño, texto, estilo, color, tags, private).
+/// Actualiza campos mutables de una nota (posición, tamaño, texto, estilo, color, tags, private, grupo).
 pub fn update_note(conn: &Connection, note: &Note) -> anyhow::Result<()> {
     conn.execute(
-        "UPDATE notes SET x=?1, y=?2, width=?3, height=?4, text=?5, style=?6, color=?7, z=?8, tags=?9, private=?10
-         WHERE id=?11",
+        "UPDATE notes SET x=?1, y=?2, width=?3, height=?4, text=?5, style=?6, color=?7, z=?8, tags=?9, private=?10, group_id=?11
+         WHERE id=?12",
         params![
             note.x,
             note.y,
@@ -339,9 +347,16 @@ pub fn update_note(conn: &Connection, note: &Note) -> anyhow::Result<()> {
             note.z,
             note.tags,
             if note.private { 1 } else { 0 },
+            note.group_id,
             note.id
         ],
     )?;
+    Ok(())
+}
+
+/// Ancla (o desancla) una nota a un grupo.
+pub fn set_note_group(conn: &Connection, note_id: i64, group_id: Option<i64>) -> anyhow::Result<()> {
+    conn.execute("UPDATE notes SET group_id = ?1 WHERE id = ?2", params![group_id, note_id])?;
     Ok(())
 }
 
@@ -371,7 +386,7 @@ pub fn delete_note(conn: &Connection, id: i64) -> anyhow::Result<()> {
 
 pub fn list_trash_notes(conn: &Connection) -> anyhow::Result<Vec<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at, group_id
          FROM notes WHERE deleted = 1 ORDER BY id DESC",
     )?;
     let rows = stmt.query_map([], row_to_note)?;

@@ -73,6 +73,8 @@ pub struct NotePatch {
     tags: Option<String>,
     #[serde(default)]
     private: Option<bool>,
+    #[serde(default)]
+    group_id: Option<Option<i64>>,
 }
 
 #[derive(Deserialize)]
@@ -397,6 +399,9 @@ async fn update_note(
     }
     if let Some(v) = body.private {
         note.private = v;
+    }
+    if let Some(v) = body.group_id {
+        note.group_id = v;
     }
     with_db(&st, |conn| db::update_note(conn, &note))?;
     Ok(Json(note))
