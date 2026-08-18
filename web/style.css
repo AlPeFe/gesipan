@@ -128,18 +128,19 @@ button { font-family: inherit; }
 .group-box {
   position: absolute; border: 2px dashed var(--md-primary); border-radius: var(--radius);
   background: color-mix(in srgb, var(--md-primary) 6%, transparent);
-  pointer-events: none; z-index: 1;
+  cursor: move; z-index: 1;
 }
+.group-box:hover { border-color: var(--md-on-primary-container); }
 .group-box .group-title {
   position: absolute; top: 8px; left: 12px; font-size: 12px; font-weight: 500;
-  color: var(--md-primary); pointer-events: auto; outline: none; border: none; background: transparent;
+  color: var(--md-primary); outline: none; border: none; background: transparent;
   font-family: inherit; width: calc(100% - 24px);
 }
 .group-box.selected { border-color: var(--md-on-primary-container); background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
 .group-box .group-handle {
   position: absolute; right: -6px; bottom: -6px; width: 14px; height: 14px;
   border-radius: 50%; background: var(--md-primary); border: 2px solid #fff;
-  pointer-events: auto; cursor: nwse-resize; display: none;
+  cursor: nwse-resize; display: none;
 }
 .group-box.selected .group-handle { display: block; }
 
@@ -202,6 +203,21 @@ button { font-family: inherit; }
 .note .actions button { border: none; background: none; cursor: pointer; width: 24px; height: 24px; border-radius: 6px; font-size: 13px; }
 .note .actions button:hover { background: var(--md-surface-variant); }
 
+/* Puntos de anclaje (solo visibles en modo conectar) */
+.anchor {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--md-surface); border: 2px solid var(--md-primary);
+  transform: translate(-50%, -50%); cursor: crosshair; z-index: 6;
+  display: none;
+}
+.anchor:hover { background: var(--md-primary); }
+.note.anchor-mode .anchor { display: block; }
+.anchor.anchor-top { top: 0; left: 50%; }
+.anchor.anchor-right { top: 50%; left: 100%; }
+.anchor.anchor-bottom { top: 100%; left: 50%; }
+.anchor.anchor-left { top: 50%; left: 0; }
+.anchor.selected-anchor { background: var(--md-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-primary) 30%, transparent); }
+
 /* ============================ TOPBAR (búsqueda) ============================ */
 #topbar {
   position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
@@ -242,6 +258,8 @@ button { font-family: inherit; }
 .tool-btn:hover { background: var(--md-surface-variant); }
 .tool-btn.active { background: var(--md-primary-container); color: var(--md-on-primary-container); }
 .tool-btn.connect-active { background: var(--md-error); color: #fff; }
+.tool-btn.new-note { background: var(--md-primary); color: #fff; font-weight: 700; font-size: 20px; box-shadow: var(--shadow-1); }
+.tool-btn.new-note:hover { background: #5a459b; }
 .tool-sep { width: 1px; height: 22px; background: var(--md-outline-variant); margin: 0 4px; }
 #zoom-label { font-size: 12px; color: var(--md-on-surface-variant); min-width: 42px; text-align: center; }
 

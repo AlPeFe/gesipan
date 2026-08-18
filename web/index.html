@@ -45,11 +45,12 @@
 
     <!-- Barra de herramientas flotante -->
     <div id="toolbar">
-      <button id="postit-btn" class="tool-btn active" title="Nota post-it (clic en el lienzo para crear)">📝</button>
-      <button id="pin-btn" class="tool-btn" title="Nota con chincheta">📌</button>
-      <button id="group-btn" class="tool-btn" title="Grupo: recuadro que agrupa notas">▣</button>
+      <button id="new-note-btn" class="tool-btn new-note" title="Crear nueva nota">＋</button>
+      <button id="postit-btn" class="tool-btn active" title="Nuevas notas como post-it">📝</button>
+      <button id="pin-btn" class="tool-btn" title="Nuevas notas como chincheta">📌</button>
       <span class="tool-sep"></span>
-      <button id="connect-btn" class="tool-btn" title="Unir dos notas con una línea">⤳</button>
+      <button id="group-btn" class="tool-btn" title="Grupo: recuadro que agrupa notas (toggle)">▣</button>
+      <button id="connect-btn" class="tool-btn" title="Unir notas (toggle): clic en dos puntos de anclaje">⤳</button>
       <span class="tool-sep"></span>
       <button id="zoom-in" class="tool-btn">＋</button>
       <span id="zoom-label">100%</span>
@@ -68,10 +69,10 @@
     </div>
 
     <!-- Aviso de modo conexión -->
-    <div id="connect-hint" class="connect-hint hidden">Haz clic en la primera nota, luego en la segunda para unirlas · Esc cancela</div>
+    <div id="connect-hint" class="connect-hint hidden">Modo unir: clic en un punto de anclaje de la 1ª nota y luego en el de la 2ª · Esc cancela</div>
 
-    <!-- Sugerencia al activar herramienta de nota -->
-    <div id="tool-hint" class="tool-hint hidden">Clic en el lienzo para colocar la nota</div>
+    <!-- Sugerencia al activar herramienta de grupo -->
+    <div id="tool-hint" class="tool-hint hidden">Modo grupo: clic en el lienzo para crear un grupo · Esc cancela</div>
   </main>
 
   <!-- ============ PANEL INSPECTOR (metadata de la nota seleccionada) ============ -->

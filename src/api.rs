@@ -99,8 +99,16 @@ pub struct GroupPatch {
 pub struct ConnectionIn {
     from_id: i64,
     to_id: i64,
+    #[serde(default = "default_anchor")]
+    from_anchor: String,
+    #[serde(default = "default_anchor")]
+    to_anchor: String,
     #[serde(default)]
     label: String,
+}
+
+fn default_anchor() -> String {
+    "center".to_string()
 }
 
 #[derive(Deserialize)]
@@ -443,9 +451,11 @@ async fn create_connection(
             "cannot connect a note to itself",
         ));
     }
+    let from_anchor = body.from_anchor.clone();
+    let to_anchor = body.to_anchor.clone();
     let label = body.label.clone();
     let c = with_db(&st, |conn| {
-        db::create_connection(conn, board_id, body.from_id, body.to_id, &label)
+        db::create_connection(conn, board_id, body.from_id, body.to_id, &from_anchor, &to_anchor, &label)
     })?;
     Ok((StatusCode::CREATED, Json(c)))
 }

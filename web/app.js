@@ -23,21 +23,21 @@ const state = {
 
   cam: { x: 0, y: 0, zoom: 1 },
 
-  // Herramienta activa: "postit" | "pin" | "connect" | "group" | "pan"
-  tool: "postit",
+  // Herramienta activa: "pan" | "group" | "connect"
+  tool: "pan",
+  // Estilo de las notas nuevas: "postit" | "pin"
+  noteStyle: "postit",
   activeColor: "yellow",
 
-  // Conexión: al pulsar la 1ª nota guardamos su id
-  connectFrom: null,
+  // Conexión: { noteId, anchor } de la primera ancla pulsada
+  connectAnchorFrom: null,
   selectedNoteId: null,
   selectedGroupId: null,
 
   drag: null,   // { noteId|groupId, offX, offY, kind }
   panning: false,
 
-  // Privacidad: cuando true, las notas privadas se difuminan
   privacyOn: false,
-  // Búsqueda: filtra las notas visibles (atenúa las que no coinciden)
   search: "",
 };
 
@@ -145,13 +145,15 @@ async function loadBoard(id) {
   state.notes = data.notes;
   state.connections = data.connections;
   state.groups = data.groups;
-  state.connectFrom = null;
+  state.connectAnchorFrom = null;
   state.selectedNoteId = null;
   state.selectedGroupId = null;
   hideInspector();
   renderBoardList();
   renderAll();
   applyFilter();
+  applyPrivacy();
+  applyToolMode();
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +179,7 @@ function createGroupEl(g) {
   title.className = "group-title";
   title.value = g.title;
   title.placeholder = "Título del grupo";
+  title.addEventListener("pointerdown", (e) => e.stopPropagation());
   title.addEventListener("input", () => {
     g.title = title.value;
     api(`/api/groups/${g.id}`, "PATCH", { title: g.title }).catch(() => {});
@@ -187,23 +190,27 @@ function createGroupEl(g) {
   handle.className = "group-handle";
   div.appendChild(handle);
 
-  div.addEventListener("mousedown", (e) => {
-    if (e.target === title) return; // editar título no arrastra
+  div.addEventListener("pointerdown", (e) => {
+    if (e.target === title || e.target === handle) return;
+    if (state.tool === "connect") return; // en modo conectar no se arrastra
+    e.preventDefault();
     state.selectedNoteId = null;
     state.selectedGroupId = g.id;
     setSelections();
-    if (e.target === handle) {
-      startGroupResize(e, g, div);
-    } else {
-      startGroupDrag(e, g, div);
-    }
+    startGroupDrag(e, g, div);
+  });
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.selectedGroupId = g.id;
+    setSelections();
+    startGroupResize(e, g, div);
   });
   return div;
 }
 
-// Mover un grupo: desplaza las notas que contiene junto con él.
+// Mover un grupo: desplaza las notas ancladas (con el centro dentro) con él.
 function startGroupDrag(e, g, div) {
-  e.preventDefault();
   const rect = div.getBoundingClientRect();
   const world = screenToWorld(rect.left, rect.top);
   const offX = world.x - g.x;
@@ -218,9 +225,9 @@ function startGroupDrag(e, g, div) {
     g.y += dy;
     div.style.left = g.x + "px";
     div.style.top = g.y + "px";
-    // Mueve las notas contenidas.
+    // Mueve las notas ancladas al grupo (centro dentro del recuadro).
     for (const n of state.notes) {
-      if (noteInsideGroup(n, g)) {
+      if (noteAnchoredToGroup(n, g)) {
         n.x += dx;
         n.y += dy;
         const noteEl = el.world.querySelector(`.note[data-id="${n.id}"]`);
@@ -234,18 +241,16 @@ function startGroupDrag(e, g, div) {
     drawConnections();
   };
   const onUp = () => {
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
     state.drag = null;
     api(`/api/groups/${g.id}`, "PATCH", { x: g.x, y: g.y }).catch(() => {});
   };
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
 }
 
 function startGroupResize(e, g, div) {
-  e.preventDefault();
-  e.stopPropagation();
   const startX = e.clientX, startY = e.clientY;
   const startW = g.width, startH = g.height;
   const onMove = (ev) => {
@@ -255,16 +260,19 @@ function startGroupResize(e, g, div) {
     div.style.height = g.height + "px";
   };
   const onUp = () => {
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
     api(`/api/groups/${g.id}`, "PATCH", { width: g.width, height: g.height }).catch(() => {});
   };
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
 }
 
-function noteInsideGroup(n, g) {
-  return n.x >= g.x - 4 && n.y >= g.y - 4 && n.x + n.width <= g.x + g.width + 4 && n.y + n.height <= g.y + g.height + 4;
+// Una nota está "anclada" al grupo si el centro de la nota cae dentro del grupo.
+function noteAnchoredToGroup(n, g) {
+  const cx = n.x + n.width / 2;
+  const cy = n.y + n.height / 2;
+  return cx >= g.x && cx <= g.x + g.width && cy >= g.y && cy <= g.y + g.height;
 }
 
 // ---------------------------------------------------------------------------
@@ -286,15 +294,10 @@ function createNoteEl(n) {
     div.appendChild(pin);
   }
 
+  // Contenido (solo lectura; se edita desde el inspector).
   const content = document.createElement("div");
   content.className = "content";
-  content.contentEditable = "true";
   content.textContent = n.text;
-  content.spellcheck = false;
-  content.addEventListener("input", () => {
-    n.text = content.textContent;
-    saveNote(n);
-  });
   div.appendChild(content);
 
   // Etiquetas
@@ -317,6 +320,20 @@ function createNoteEl(n) {
     priv.textContent = "🔒";
     priv.title = "Privada";
     div.appendChild(priv);
+  }
+
+  // Puntos de anclaje (visibles en modo conectar)
+  for (const pos of ["top", "right", "bottom", "left"]) {
+    const a = document.createElement("div");
+    a.className = `anchor anchor-${pos}`;
+    a.dataset.noteId = n.id;
+    a.dataset.anchor = pos;
+    a.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleAnchorClick(n, pos, a);
+    });
+    div.appendChild(a);
   }
 
   const actions = document.createElement("div");
@@ -345,37 +362,47 @@ function actionBtn(label, title, onClick) {
 // Eventos de nota
 // ---------------------------------------------------------------------------
 function attachNoteEvents(div, n) {
-  div.addEventListener("mousedown", (e) => {
+  // pointerdown en cualquier parte del cuerpo de la nota (menos acciones/anclas):
+  // si la herramienta es "conectar", selecciona la nota; si no, inicia drag.
+  div.addEventListener("pointerdown", (e) => {
     if (e.target.closest(".actions")) return;
-    if (e.target.classList.contains("content")) return;
+    if (e.target.classList.contains("anchor")) return;
 
     state.selectedGroupId = null;
     state.selectedNoteId = n.id;
     setSelections();
 
     if (state.tool === "connect") {
-      handleConnectClick(n);
+      // En modo conectar, un clic en la nota sin ancla no hace nada de drag.
       return;
     }
     startNoteDrag(e, n, div);
   });
 
-  // Doble clic abre el inspector
-  div.addEventListener("dblclick", (e) => {
+  // Clic sin arrastre (release) abre el inspector.
+  div.addEventListener("click", (e) => {
     if (e.target.closest(".actions")) return;
+    if (e.target.classList.contains("anchor")) return;
+    // Si acabamos de arrastrar, no abrimos el inspector.
+    if (noteJustDragged) { noteJustDragged = false; return; }
     openInspector(n);
   });
 }
 
+// Bandera: true justo después de arrastrar una nota (para que el click post-drag
+// no abra el inspector). Se resetea en el primer click.
+let noteJustDragged = false;
+
 function startNoteDrag(e, note, div) {
-  e.preventDefault();
   const rect = div.getBoundingClientRect();
   const worldPos = screenToWorld(rect.left, rect.top);
   const offX = worldPos.x - note.x;
   const offY = worldPos.y - note.y;
-  state.drag = { kind: "note", id: note.id, offX, offY };
+  state.drag = { kind: "note", id: note.id, offX, offY, moved: false };
 
   const onMove = (ev) => {
+    if (!state.drag) return;
+    state.drag.moved = true;
     const w = screenToWorld(ev.clientX, ev.clientY);
     note.x = w.x - state.drag.offX;
     note.y = w.y - state.drag.offY;
@@ -384,27 +411,98 @@ function startNoteDrag(e, note, div) {
     drawConnections();
   };
   const onUp = () => {
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    const moved = state.drag && state.drag.moved;
     state.drag = null;
-    saveNote(note);
+    if (moved) {
+      noteJustDragged = true;
+      saveNote(note);
+    }
   };
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}
+
+// ---------------------------------------------------------------------------
+// Conexiones con puntos de anclaje
+// ---------------------------------------------------------------------------
+function handleAnchorClick(n, anchor, el) {
+  if (state.connectAnchorFrom === null) {
+    state.connectAnchorFrom = { noteId: n.id, anchor };
+    // Resalta la ancla seleccionada.
+    document.querySelectorAll(".anchor").forEach((a) => a.classList.remove("selected-anchor"));
+    el.classList.add("selected-anchor");
+  } else {
+    const from = state.connectAnchorFrom;
+    state.connectAnchorFrom = null;
+    document.querySelectorAll(".anchor").forEach((a) => a.classList.remove("selected-anchor"));
+    if (from.noteId === n.id && from.anchor === anchor) return; // mismo punto
+    api(`/api/boards/${state.currentBoardId}/connections`, "POST", {
+      from_id: from.noteId, to_id: n.id,
+      from_anchor: from.anchor, to_anchor: anchor, label: "",
+    }).then((c) => {
+      state.connections.push(c);
+      drawConnections();
+    }).catch((err) => alert(err.message));
+  }
+}
+
+// Devuelve el offset (0..1) del punto de anclaje dentro de la nota.
+function anchorOffset(anchor) {
+  switch (anchor) {
+    case "top": return { fx: 0.5, fy: 0 };
+    case "right": return { fx: 1, fy: 0.5 };
+    case "bottom": return { fx: 0.5, fy: 1 };
+    case "left": return { fx: 0, fy: 0.5 };
+    default: return { fx: 0.5, fy: 0.5 };
+  }
+}
+
+function drawConnections() {
+  el.connectionsLayer.innerHTML = "";
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--md-primary)"/></marker>`;
+  el.connectionsLayer.appendChild(defs);
+
+  for (const c of state.connections) {
+    const from = state.notes.find((n) => n.id === c.from_id);
+    const to = state.notes.find((n) => n.id === c.to_id);
+    if (!from || !to) continue;
+
+    const fo = anchorOffset(c.from_anchor || "center");
+    const toff = anchorOffset(c.to_anchor || "center");
+    const fx = state.cam.x + (from.x + from.width * fo.fx) * state.cam.zoom;
+    const fy = state.cam.y + (from.y + from.height * fo.fy) * state.cam.zoom;
+    const tx = state.cam.x + (to.x + to.width * toff.fx) * state.cam.zoom;
+    const ty = state.cam.y + (to.y + to.height * toff.fy) * state.cam.zoom;
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("class", "conn");
+    const mx = (fx + tx) / 2, my = (fy + ty) / 2;
+    path.setAttribute("d", `M ${fx} ${fy} Q ${mx} ${my} ${tx} ${ty}`);
+
+    if (c.label) {
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("class", "conn-label");
+      text.setAttribute("x", mx);
+      text.setAttribute("y", my - 6);
+      text.setAttribute("text-anchor", "middle");
+      text.textContent = c.label;
+      el.connectionsLayer.appendChild(text);
+    }
+    el.connectionsLayer.appendChild(path);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Pan del lienzo
 // ---------------------------------------------------------------------------
-el.board.addEventListener("mousedown", (e) => {
+el.board.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || e.target !== el.board) return;
 
-  // Si la herramienta es postit/pin, el clic crea una nota en ese punto.
-  if (state.tool === "postit" || state.tool === "pin") {
-    const w = screenToWorld(e.clientX, e.clientY);
-    createNote(w.x, w.y);
-    return;
-  }
+  // En modo grupo, un clic en el fondo crea un grupo en ese punto.
   if (state.tool === "group") {
     const w = screenToWorld(e.clientX, e.clientY);
     createGroup(w.x, w.y);
@@ -421,13 +519,13 @@ el.board.addEventListener("mousedown", (e) => {
     applyCamera();
   };
   const onUp = () => {
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
     state.panning = false;
     el.board.classList.remove("panning");
   };
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
 });
 
 // ---------------------------------------------------------------------------
@@ -453,14 +551,14 @@ el.board.addEventListener("wheel", (e) => {
 // Crear nota / grupo
 // ---------------------------------------------------------------------------
 async function createNote(x, y) {
-  const style = state.tool === "pin" ? "pin" : "postit";
   const note = await api(`/api/boards/${state.currentBoardId}/notes`, "POST", {
-    x, y, style, color: state.activeColor,
+    x, y, style: state.noteStyle, color: state.activeColor,
   });
   state.notes.push(note);
   renderAll();
   applyFilter();
-  // Abre el inspector para añadir texto/etiquetas al momento.
+  applyPrivacy();
+  applyToolMode();
   openInspector(note);
 }
 
@@ -470,62 +568,7 @@ async function createGroup(x, y) {
   state.selectedGroupId = g.id;
   state.selectedNoteId = null;
   renderAll();
-}
-
-// ---------------------------------------------------------------------------
-// Conexiones (flechas)
-// ---------------------------------------------------------------------------
-function handleConnectClick(n) {
-  if (state.connectFrom === null) {
-    state.connectFrom = n.id;
-    setSelections();
-  } else if (state.connectFrom === n.id) {
-    state.connectFrom = null;
-    setSelections();
-  } else {
-    api(`/api/boards/${state.currentBoardId}/connections`, "POST", {
-      from_id: state.connectFrom, to_id: n.id, label: "",
-    }).then((c) => {
-      state.connections.push(c);
-      state.connectFrom = null;
-      drawConnections();
-    }).catch((err) => alert(err.message));
-  }
-}
-
-function drawConnections() {
-  el.connectionsLayer.innerHTML = "";
-  // Marker de flecha (definido una vez)
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  defs.innerHTML = `<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-      <path d="M0,0 L8,4 L0,8 z" fill="var(--md-primary)"/></marker>`;
-  el.connectionsLayer.appendChild(defs);
-
-  for (const c of state.connections) {
-    const from = state.notes.find((n) => n.id === c.from_id);
-    const to = state.notes.find((n) => n.id === c.to_id);
-    if (!from || !to) continue;
-    const fx = state.cam.x + (from.x + from.width / 2) * state.cam.zoom;
-    const fy = state.cam.y + (from.y + from.height / 2) * state.cam.zoom;
-    const tx = state.cam.x + (to.x + to.width / 2) * state.cam.zoom;
-    const ty = state.cam.y + (to.y + to.height / 2) * state.cam.zoom;
-
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("class", "conn");
-    const mx = (fx + tx) / 2, my = (fy + ty) / 2;
-    path.setAttribute("d", `M ${fx} ${fy} Q ${mx} ${my} ${tx} ${ty}`);
-
-    if (c.label) {
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("class", "conn-label");
-      text.setAttribute("x", mx);
-      text.setAttribute("y", my - 6);
-      text.setAttribute("text-anchor", "middle");
-      text.textContent = c.label;
-      el.connectionsLayer.appendChild(text);
-    }
-    el.connectionsLayer.appendChild(path);
-  }
+  setSelections();
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +596,16 @@ async function deleteNote(n) {
   if (state.selectedNoteId === n.id) hideInspector();
   renderAll();
   applyFilter();
+  applyPrivacy();
+  applyToolMode();
+}
+
+async function deleteGroup(g) {
+  if (!confirm("¿Eliminar este grupo?")) return;
+  await api(`/api/groups/${g.id}`, "DELETE");
+  state.groups = state.groups.filter((x) => x.id !== g.id);
+  state.selectedGroupId = null;
+  renderAll();
 }
 
 // ---------------------------------------------------------------------------
@@ -584,6 +637,9 @@ function openInspector(n) {
   el.inspector.querySelectorAll(".insp-colors .swatch").forEach((s) => {
     s.classList.toggle("active", s.dataset.color === n.color);
   });
+  const inspPrivate = document.getElementById("insp-private");
+  inspPrivate.classList.toggle("active", n.private);
+  inspPrivate.textContent = n.private ? "🔓 Quitar privacidad" : "🔒 Marcar como privada";
   el.inspText.focus();
 }
 
@@ -603,9 +659,10 @@ el.inspTags.addEventListener("input", () => {
   if (!editingNote) return;
   editingNote.tags = el.inspTags.value.trim();
   saveNote(editingNote);
-  // Re-render para actualizar chips
   renderAll();
   applyFilter();
+  applyPrivacy();
+  applyToolMode();
 });
 el.inspStylePostit.addEventListener("click", () => {
   if (!editingNote) return;
@@ -615,6 +672,8 @@ el.inspStylePostit.addEventListener("click", () => {
   saveNote(editingNote);
   renderAll();
   applyFilter();
+  applyPrivacy();
+  applyToolMode();
 });
 el.inspStylePin.addEventListener("click", () => {
   if (!editingNote) return;
@@ -624,6 +683,8 @@ el.inspStylePin.addEventListener("click", () => {
   saveNote(editingNote);
   renderAll();
   applyFilter();
+  applyPrivacy();
+  applyToolMode();
 });
 el.inspector.querySelectorAll(".insp-colors .swatch").forEach((s) => {
   s.addEventListener("click", () => {
@@ -634,6 +695,8 @@ el.inspector.querySelectorAll(".insp-colors .swatch").forEach((s) => {
     saveNote(editingNote);
     renderAll();
     applyFilter();
+    applyPrivacy();
+    applyToolMode();
   });
 });
 el.inspDelete.addEventListener("click", () => {
@@ -641,7 +704,6 @@ el.inspDelete.addEventListener("click", () => {
 });
 el.inspClose.addEventListener("click", hideInspector);
 
-// Botón de privacidad de la nota en el inspector
 const inspPrivate = document.getElementById("insp-private");
 inspPrivate.addEventListener("click", () => {
   if (!editingNote) return;
@@ -652,14 +714,8 @@ inspPrivate.addEventListener("click", () => {
   renderAll();
   applyFilter();
   applyPrivacy();
+  applyToolMode();
 });
-// Refleja el estado al abrir el inspector
-const origOpenInspector = openInspector;
-openInspector = (n) => {
-  origOpenInspector(n);
-  inspPrivate.classList.toggle("active", n.private);
-  inspPrivate.textContent = n.private ? "🔓 Quitar privacidad" : "🔒 Marcar como privada";
-};
 
 // ---------------------------------------------------------------------------
 // Búsqueda (filtra las notas visibles, atenuando las que no coinciden)
@@ -698,26 +754,49 @@ function applyPrivacy() {
 }
 
 // ---------------------------------------------------------------------------
-// Herramientas
+// Herramientas / modos
 // ---------------------------------------------------------------------------
 function setTool(tool) {
   state.tool = tool;
-  document.getElementById("postit-btn").classList.toggle("active", tool === "postit");
-  document.getElementById("pin-btn").classList.toggle("active", tool === "pin");
   document.getElementById("group-btn").classList.toggle("active", tool === "group");
   const cb = document.getElementById("connect-btn");
   cb.classList.toggle("connect-active", tool === "connect");
-  el.colorPicker.classList.toggle("hidden", tool === "connect" || tool === "group");
   el.connectHint.classList.toggle("hidden", tool !== "connect");
-  el.toolHint.classList.toggle("hidden", tool !== "postit" && tool !== "pin" && tool !== "group");
-  if (tool !== "connect") state.connectFrom = null;
+  el.toolHint.classList.toggle("hidden", tool !== "group");
+  el.colorPicker.classList.toggle("hidden", tool === "group" || tool === "connect");
+  if (tool !== "connect") state.connectAnchorFrom = null;
+  applyToolMode();
 }
 
-document.getElementById("postit-btn").addEventListener("click", () => setTool("postit"));
-document.getElementById("pin-btn").addEventListener("click", () => setTool("pin"));
-document.getElementById("group-btn").addEventListener("click", () => setTool("group"));
+// Refleja el modo en las notas (mostrar/ocultar anclas, cursor).
+function applyToolMode() {
+  const connectMode = state.tool === "connect";
+  el.world.querySelectorAll(".note").forEach((d) => {
+    d.classList.toggle("anchor-mode", connectMode);
+  });
+}
+
+// --- Estilo de nota nueva (postit / pin) ---
+function setNoteStyle(style) {
+  state.noteStyle = style;
+  document.getElementById("postit-btn").classList.toggle("active", style === "postit");
+  document.getElementById("pin-btn").classList.toggle("active", style === "pin");
+}
+
+// Botón crear nueva nota (explicito, en el centro de la vista).
+document.getElementById("new-note-btn").addEventListener("click", () => {
+  if (!state.currentBoardId) return;
+  const c = viewCenter();
+  createNote(c.x, c.y);
+});
+
+document.getElementById("postit-btn").addEventListener("click", () => setNoteStyle("postit"));
+document.getElementById("pin-btn").addEventListener("click", () => setNoteStyle("pin"));
+document.getElementById("group-btn").addEventListener("click", () =>
+  setTool(state.tool === "group" ? "pan" : "group")
+);
 document.getElementById("connect-btn").addEventListener("click", () =>
-  setTool(state.tool === "connect" ? "postit" : "connect")
+  setTool(state.tool === "connect" ? "pan" : "connect")
 );
 document.getElementById("zoom-in").addEventListener("click", () => {
   state.cam.zoom = Math.min(3, state.cam.zoom * 1.2);
@@ -741,16 +820,22 @@ document.querySelectorAll("#color-picker .swatch").forEach((s) => {
   });
 });
 
+// Borrar un grupo seleccionado con Supr.
 // Esc cancela / cierra inspector
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    if (state.tool === "connect" || state.tool === "group") setTool("postit");
-    state.connectFrom = null;
+    if (state.tool === "connect" || state.tool === "group") setTool("pan");
+    state.connectAnchorFrom = null;
     hideInspector();
   }
-  if (e.key === "Delete" && state.selectedNoteId !== null && !e.target.isContentEditable) {
-    const n = state.notes.find((x) => x.id === state.selectedNoteId);
-    if (n) deleteNote(n);
+  if (e.key === "Delete" && !e.target.isContentEditable) {
+    if (state.selectedNoteId !== null) {
+      const n = state.notes.find((x) => x.id === state.selectedNoteId);
+      if (n) deleteNote(n);
+    } else if (state.selectedGroupId !== null) {
+      const g = state.groups.find((x) => x.id === state.selectedGroupId);
+      if (g) deleteGroup(g);
+    }
   }
 });
 
@@ -1040,7 +1125,6 @@ bmEl.save.addEventListener("click", async () => {
 // Toggle global de privacidad en la barra superior
 // ---------------------------------------------------------------------------
 function addPrivacyToggle() {
-  const topbar = document.getElementById("topbar");
   const toggle = document.createElement("button");
   toggle.className = "privacy-toggle";
   toggle.innerHTML = "🔒";
@@ -1050,7 +1134,6 @@ function addPrivacyToggle() {
     toggle.classList.toggle("on", state.privacyOn);
     applyPrivacy();
   });
-  // Lo colocamos junto a la caja de búsqueda
   const searchBox = document.querySelector(".search-box");
   searchBox.appendChild(toggle);
 }

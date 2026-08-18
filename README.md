@@ -178,10 +178,11 @@ Comprueba el estado con `curl http://127.0.0.1:8733/api/llm/status`.
 |--------|--------------------|
 | **Mover lienzo** | Arrastrar el fondo vacío |
 | **Zoom** | Rueda del ratón, o botones ＋/－ de la barra inferior |
-| **Crear nota** | Herramienta 📝 o 📌 + **un clic** en el lienzo |
-| **Editar / tags / color** | Clic en ✎ de la nota (abre el inspector) |
-| **Unir notas** | Botón ⤳ y clic en dos notas |
-| **Grupo** | Botón ▣ y clic en el lienzo (arrastra para mover, esquina para redimensionar) |
+| **Crear nota** | Botón **＋** de la barra inferior (coloca la nota en el centro de la vista y abre el inspector). Elige estilo 📝/📌 para las nuevas |
+| **Editar / tags / color / privacidad** | **Clic en la nota** (abre el panel inspector) |
+| **Mover nota** | Arrastrarla por cualquier parte de su cuerpo |
+| **Unir notas** | Botón ⤳ (toggle) y clic en **puntos de anclaje**: uno en la 1ª nota, otro en la 2ª |
+| **Grupo** | Botón ▣ (toggle) y clic en el lienzo. Arrastra para mover (las notas ancladas se mueven), esquina para redimensionar |
 | **Buscar notas** | Barra superior (por texto o etiqueta) |
 | **Privacidad** | 🔒 en el inspector + toggle de la barra superior |
 | **Borrar** | 🗑 en la nota, o seleccionar + tecla `Supr` |

@@ -38,13 +38,16 @@ pub struct Note {
     pub private: bool, // si es privada (el toggle global la difumina)
 }
 
-/// Conexión ("raya") entre dos notas.
+/// Conexión ("flecha") entre dos notas. `from_anchor`/`to_anchor` indican el
+/// punto de anclaje en cada nota (p.ej. "top", "right", "bottom", "left").
 #[derive(Debug, Clone, Serialize)]
 pub struct Link {
     pub id: i64,
     pub board_id: i64,
     pub from_id: i64,
     pub to_id: i64,
+    pub from_anchor: String,
+    pub to_anchor: String,
     pub label: String,
 }
 
@@ -112,6 +115,8 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
             from_id  INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
             to_id    INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            from_anchor TEXT NOT NULL DEFAULT 'center',
+            to_anchor   TEXT NOT NULL DEFAULT 'center',
             label    TEXT NOT NULL DEFAULT ''
         );
 
@@ -162,6 +167,22 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
     }
     if !cols.iter().any(|c| c == "private") {
         conn.execute_batch("ALTER TABLE notes ADD COLUMN private INTEGER NOT NULL DEFAULT 0;")?;
+    }
+
+    // Migración idempotente para `connections`: añade from_anchor/to_anchor.
+    let conn_cols: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('connections')")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<Result<_, _>>()?;
+    if !conn_cols.iter().any(|c| c == "from_anchor") {
+        conn.execute_batch(
+            "ALTER TABLE connections ADD COLUMN from_anchor TEXT NOT NULL DEFAULT 'center';",
+        )?;
+    }
+    if !conn_cols.iter().any(|c| c == "to_anchor") {
+        conn.execute_batch(
+            "ALTER TABLE connections ADD COLUMN to_anchor TEXT NOT NULL DEFAULT 'center';",
+        )?;
     }
 
     Ok(())
@@ -331,13 +352,16 @@ fn row_to_conn(r: &rusqlite::Row) -> rusqlite::Result<Link> {
         board_id: r.get(1)?,
         from_id: r.get(2)?,
         to_id: r.get(3)?,
-        label: r.get(4)?,
+        from_anchor: r.get(4)?,
+        to_anchor: r.get(5)?,
+        label: r.get(6)?,
     })
 }
 
 pub fn list_connections(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Link>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, from_id, to_id, label FROM connections WHERE board_id = ?1",
+        "SELECT id, board_id, from_id, to_id, from_anchor, to_anchor, label
+         FROM connections WHERE board_id = ?1",
     )?;
     let rows = stmt.query_map(params![board_id], row_to_conn)?;
     Ok(rows.collect::<Result<_, _>>()?)
@@ -348,11 +372,14 @@ pub fn create_connection(
     board_id: i64,
     from_id: i64,
     to_id: i64,
+    from_anchor: &str,
+    to_anchor: &str,
     label: &str,
 ) -> anyhow::Result<Link> {
     conn.execute(
-        "INSERT INTO connections (board_id, from_id, to_id, label) VALUES (?1, ?2, ?3, ?4)",
-        params![board_id, from_id, to_id, label],
+        "INSERT INTO connections (board_id, from_id, to_id, from_anchor, to_anchor, label)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![board_id, from_id, to_id, from_anchor, to_anchor, label],
     )?;
     let id = conn.last_insert_rowid();
     Ok(Link {
@@ -360,6 +387,8 @@ pub fn create_connection(
         board_id,
         from_id,
         to_id,
+        from_anchor: from_anchor.to_string(),
+        to_anchor: to_anchor.to_string(),
         label: label.to_string(),
     })
 }
