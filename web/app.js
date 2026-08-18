@@ -1,13 +1,12 @@
 /* =========================================================================
-   Pizarra — lógica del whiteboard infinito (vanilla JS, sin dependencias)
+   Pizarra — whiteboard infinito (Material 3) + bookmarks (estilo Raindrop)
+   Vanilla JS, sin dependencias.
 
-   Ideas clave del modelo de "pizarra infinita":
-   - Hay un "mundo" (#world) que contiene las notas.
-   - La cámara se representa con { x, y, zoom } y se aplica al mundo con un
-     transform CSS:  translate(x, y) scale(zoom).
+   Modelo de "pizarra infinita":
+   - El "mundo" (#world) contiene notas y grupos.
+   - La cámara { x, y, zoom } se aplica con transform CSS translate+scale.
    - Las notas se guardan en coordenadas DE MUNDO (ya escaladas). Al arrastrar
-     una nota, convertimos píxeles de pantalla -> coordenadas de mundo
-     dividiendo por el zoom. Así las posiciones son estables al hacer zoom.
+     convertimos píxeles de pantalla -> mundo dividiendo por el zoom.
    ========================================================================= */
 
 "use strict";
@@ -16,29 +15,34 @@
 // Estado global
 // ---------------------------------------------------------------------------
 const state = {
-  boards: [],            // lista de pizarras
-  currentBoardId: null,  // pizarra activa
-  notes: [],             // notas de la pizarra activa
-  connections: [],       // conexiones de la pizarra activa
+  boards: [],
+  currentBoardId: null,
+  notes: [],
+  connections: [],
+  groups: [],
 
-  // Cámara (pan/zoom)
   cam: { x: 0, y: 0, zoom: 1 },
 
-  // Modo de herramienta: "postit" | "pin" | "connect"
+  // Herramienta activa: "postit" | "pin" | "connect" | "group" | "pan"
   tool: "postit",
   activeColor: "yellow",
 
-  // Estado de conexión: al hacer clic en la 1ª nota guardamos su id
+  // Conexión: al pulsar la 1ª nota guardamos su id
   connectFrom: null,
   selectedNoteId: null,
+  selectedGroupId: null,
 
-  // Drag de notas / pan
-  drag: null,        // { noteId, dx, dy } en coords mundo
+  drag: null,   // { noteId|groupId, offX, offY, kind }
   panning: false,
+
+  // Privacidad: cuando true, las notas privadas se difuminan
+  privacyOn: false,
+  // Búsqueda: filtra las notas visibles (atenúa las que no coinciden)
+  search: "",
 };
 
 // ---------------------------------------------------------------------------
-// Referencias a elementos del DOM
+// Elementos del DOM
 // ---------------------------------------------------------------------------
 const el = {
   board: document.getElementById("board"),
@@ -47,14 +51,24 @@ const el = {
   boardList: document.getElementById("board-list"),
   zoomLabel: document.getElementById("zoom-label"),
   connectHint: document.getElementById("connect-hint"),
+  toolHint: document.getElementById("tool-hint"),
   colorPicker: document.getElementById("color-picker"),
   llmDot: document.getElementById("llm-dot"),
+  noteSearch: document.getElementById("note-search"),
+  searchClear: document.getElementById("search-clear"),
   modal: document.getElementById("modal"),
   modalInput: document.getElementById("modal-input"),
+  inspector: document.getElementById("inspector"),
+  inspText: document.getElementById("insp-text"),
+  inspTags: document.getElementById("insp-tags"),
+  inspClose: document.getElementById("insp-close"),
+  inspStylePostit: document.getElementById("insp-style-postit"),
+  inspStylePin: document.getElementById("insp-style-pin"),
+  inspDelete: document.getElementById("insp-delete"),
 };
 
 // ---------------------------------------------------------------------------
-// Helpers de API (fetch unificado)
+// API
 // ---------------------------------------------------------------------------
 async function api(path, method = "GET", body) {
   const opts = { method, headers: {} };
@@ -72,7 +86,7 @@ async function api(path, method = "GET", body) {
 }
 
 // ---------------------------------------------------------------------------
-// Cámara: aplicar transform y convertir coordenadas
+// Cámara
 // ---------------------------------------------------------------------------
 function applyCamera() {
   el.world.style.transform = `translate(${state.cam.x}px, ${state.cam.y}px) scale(${state.cam.zoom})`;
@@ -80,32 +94,27 @@ function applyCamera() {
   drawConnections();
 }
 
-// Píxeles de pantalla relativos al board -> coordenadas de mundo.
 function screenToWorld(sx, sy) {
   const rect = el.board.getBoundingClientRect();
-  const px = sx - rect.left - state.cam.x;
-  const py = sy - rect.top - state.cam.y;
-  return { x: px / state.cam.zoom, y: py / state.cam.zoom };
+  return {
+    x: (sx - rect.left - state.cam.x) / state.cam.zoom,
+    y: (sy - rect.top - state.cam.y) / state.cam.zoom,
+  };
 }
 
-// Centro visual del board en coords de mundo (para colocar notas nuevas).
 function viewCenter() {
   const rect = el.board.getBoundingClientRect();
   return screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
 }
 
 // ---------------------------------------------------------------------------
-// Cargar pizarras y pizarra activa
+// Carga de pizarras
 // ---------------------------------------------------------------------------
 async function loadBoards() {
   state.boards = await api("/api/boards");
   renderBoardList();
-
-  // Selecciona la primera pizarra si no hay ninguna activa válida.
   const exists = state.boards.some((b) => b.id === state.currentBoardId);
-  if (!exists && state.boards.length > 0) {
-    await loadBoard(state.boards[0].id);
-  }
+  if (!exists && state.boards.length > 0) await loadBoard(state.boards[0].id);
 }
 
 function renderBoardList() {
@@ -114,7 +123,6 @@ function renderBoardList() {
     const item = document.createElement("div");
     item.className = "board-item" + (b.id === state.currentBoardId ? " active" : "");
     item.textContent = b.name;
-
     const del = document.createElement("button");
     del.className = "del";
     del.textContent = "✕";
@@ -126,7 +134,6 @@ function renderBoardList() {
       await loadBoards();
     });
     item.appendChild(del);
-
     item.addEventListener("click", () => loadBoard(b.id));
     el.boardList.appendChild(item);
   }
@@ -137,23 +144,132 @@ async function loadBoard(id) {
   const data = await api(`/api/boards/${id}/data`);
   state.notes = data.notes;
   state.connections = data.connections;
+  state.groups = data.groups;
   state.connectFrom = null;
   state.selectedNoteId = null;
+  state.selectedGroupId = null;
+  hideInspector();
   renderBoardList();
-  renderNotes();
-  drawConnections();
+  renderAll();
+  applyFilter();
 }
 
 // ---------------------------------------------------------------------------
-// Render de notas
+// Render: grupos + notas
 // ---------------------------------------------------------------------------
-function renderNotes() {
+function renderAll() {
   el.world.innerHTML = "";
-  for (const n of state.notes) {
-    el.world.appendChild(createNoteEl(n));
-  }
+  for (const g of state.groups) el.world.appendChild(createGroupEl(g));
+  for (const n of state.notes) el.world.appendChild(createNoteEl(n));
 }
 
+function createGroupEl(g) {
+  const div = document.createElement("div");
+  div.className = "group-box" + (state.selectedGroupId === g.id ? " selected" : "");
+  div.dataset.groupId = g.id;
+  div.style.left = g.x + "px";
+  div.style.top = g.y + "px";
+  div.style.width = g.width + "px";
+  div.style.height = g.height + "px";
+  div.style.zIndex = 1;
+
+  const title = document.createElement("input");
+  title.className = "group-title";
+  title.value = g.title;
+  title.placeholder = "Título del grupo";
+  title.addEventListener("input", () => {
+    g.title = title.value;
+    api(`/api/groups/${g.id}`, "PATCH", { title: g.title }).catch(() => {});
+  });
+  div.appendChild(title);
+
+  const handle = document.createElement("div");
+  handle.className = "group-handle";
+  div.appendChild(handle);
+
+  div.addEventListener("mousedown", (e) => {
+    if (e.target === title) return; // editar título no arrastra
+    state.selectedNoteId = null;
+    state.selectedGroupId = g.id;
+    setSelections();
+    if (e.target === handle) {
+      startGroupResize(e, g, div);
+    } else {
+      startGroupDrag(e, g, div);
+    }
+  });
+  return div;
+}
+
+// Mover un grupo: desplaza las notas que contiene junto con él.
+function startGroupDrag(e, g, div) {
+  e.preventDefault();
+  const rect = div.getBoundingClientRect();
+  const world = screenToWorld(rect.left, rect.top);
+  const offX = world.x - g.x;
+  const offY = world.y - g.y;
+  state.drag = { kind: "group", id: g.id, offX, offY };
+
+  const onMove = (ev) => {
+    const w = screenToWorld(ev.clientX, ev.clientY);
+    const dx = w.x - state.drag.offX - g.x;
+    const dy = w.y - state.drag.offY - g.y;
+    g.x += dx;
+    g.y += dy;
+    div.style.left = g.x + "px";
+    div.style.top = g.y + "px";
+    // Mueve las notas contenidas.
+    for (const n of state.notes) {
+      if (noteInsideGroup(n, g)) {
+        n.x += dx;
+        n.y += dy;
+        const noteEl = el.world.querySelector(`.note[data-id="${n.id}"]`);
+        if (noteEl) {
+          noteEl.style.left = n.x + "px";
+          noteEl.style.top = n.y + "px";
+        }
+        saveNote(n);
+      }
+    }
+    drawConnections();
+  };
+  const onUp = () => {
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+    state.drag = null;
+    api(`/api/groups/${g.id}`, "PATCH", { x: g.x, y: g.y }).catch(() => {});
+  };
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+}
+
+function startGroupResize(e, g, div) {
+  e.preventDefault();
+  e.stopPropagation();
+  const startX = e.clientX, startY = e.clientY;
+  const startW = g.width, startH = g.height;
+  const onMove = (ev) => {
+    g.width = Math.max(120, startW + (ev.clientX - startX) / state.cam.zoom);
+    g.height = Math.max(90, startH + (ev.clientY - startY) / state.cam.zoom);
+    div.style.width = g.width + "px";
+    div.style.height = g.height + "px";
+  };
+  const onUp = () => {
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+    api(`/api/groups/${g.id}`, "PATCH", { width: g.width, height: g.height }).catch(() => {});
+  };
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+}
+
+function noteInsideGroup(n, g) {
+  return n.x >= g.x - 4 && n.y >= g.y - 4 && n.x + n.width <= g.x + g.width + 4 && n.y + n.height <= g.y + g.height + 4;
+}
+
+// ---------------------------------------------------------------------------
+// Render de una nota
+// ---------------------------------------------------------------------------
 function createNoteEl(n) {
   const div = document.createElement("div");
   div.className = `note ${n.style} ${n.color}`;
@@ -164,14 +280,12 @@ function createNoteEl(n) {
   div.style.height = n.height + "px";
   div.style.zIndex = n.z;
 
-  // Chincheta decorativa
   if (n.style === "pin") {
     const pin = document.createElement("div");
     pin.className = "pin-head";
     div.appendChild(pin);
   }
 
-  // Contenido editable
   const content = document.createElement("div");
   content.className = "content";
   content.contentEditable = "true";
@@ -183,14 +297,32 @@ function createNoteEl(n) {
   });
   div.appendChild(content);
 
-  // Barra de acciones
+  // Etiquetas
+  if (n.tags.trim()) {
+    const tagsRow = document.createElement("div");
+    tagsRow.className = "tags-row";
+    n.tags.split(",").map((t) => t.trim()).filter(Boolean).forEach((t) => {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.textContent = t;
+      tagsRow.appendChild(chip);
+    });
+    div.appendChild(tagsRow);
+  }
+
+  // Icono de privada si aplica
+  if (n.private) {
+    const priv = document.createElement("span");
+    priv.className = "note-priv";
+    priv.textContent = "🔒";
+    priv.title = "Privada";
+    div.appendChild(priv);
+  }
+
   const actions = document.createElement("div");
   actions.className = "actions";
-  actions.appendChild(actionBtn("🎨", "Cambiar color", () => openColorPicker(n, div)));
+  actions.appendChild(actionBtn("✎", "Editar", () => openInspector(n)));
   actions.appendChild(actionBtn("⬆", "Traer al frente", () => raiseNote(n, div)));
-  if (state.connections.length) {
-    actions.appendChild(actionBtn("〰️", "Conectar", () => startConnect(n)));
-  }
   actions.appendChild(actionBtn("🗑", "Eliminar", () => deleteNote(n)));
   div.appendChild(actions);
 
@@ -210,36 +342,38 @@ function actionBtn(label, title, onClick) {
 }
 
 // ---------------------------------------------------------------------------
-// Eventos: drag de notas, selección, conexión
+// Eventos de nota
 // ---------------------------------------------------------------------------
 function attachNoteEvents(div, n) {
-  // Click en la nota -> seleccionar / iniciar conexión
   div.addEventListener("mousedown", (e) => {
-    // Ignorar clicks en botones de acciones o en el contenido editando.
     if (e.target.closest(".actions")) return;
     if (e.target.classList.contains("content")) return;
 
+    state.selectedGroupId = null;
     state.selectedNoteId = n.id;
-    setSelected();
+    setSelections();
 
     if (state.tool === "connect") {
       handleConnectClick(n);
       return;
     }
-
     startNoteDrag(e, n, div);
+  });
+
+  // Doble clic abre el inspector
+  div.addEventListener("dblclick", (e) => {
+    if (e.target.closest(".actions")) return;
+    openInspector(n);
   });
 }
 
-// Drag de una nota: actualiza posición en mundo (divide por zoom).
 function startNoteDrag(e, note, div) {
   e.preventDefault();
   const rect = div.getBoundingClientRect();
   const worldPos = screenToWorld(rect.left, rect.top);
-  const startX = worldPos.x - note.x;
-  const startY = worldPos.y - note.y;
-
-  state.drag = { noteId: note.id, offX: startX, offY: startY };
+  const offX = worldPos.x - note.x;
+  const offY = worldPos.y - note.y;
+  state.drag = { kind: "note", id: note.id, offX, offY };
 
   const onMove = (ev) => {
     const w = screenToWorld(ev.clientX, ev.clientY);
@@ -260,17 +394,27 @@ function startNoteDrag(e, note, div) {
 }
 
 // ---------------------------------------------------------------------------
-// Pan del lienzo (arrastrar el fondo vacío)
+// Pan del lienzo
 // ---------------------------------------------------------------------------
 el.board.addEventListener("mousedown", (e) => {
-  // Solo pan cuando se arrastra el fondo vacío (#board) — no sobre una nota,
-  // la toolbar, el color picker ni otros controles (son elementos distintos).
   if (e.button !== 0 || e.target !== el.board) return;
+
+  // Si la herramienta es postit/pin, el clic crea una nota en ese punto.
+  if (state.tool === "postit" || state.tool === "pin") {
+    const w = screenToWorld(e.clientX, e.clientY);
+    createNote(w.x, w.y);
+    return;
+  }
+  if (state.tool === "group") {
+    const w = screenToWorld(e.clientX, e.clientY);
+    createGroup(w.x, w.y);
+    return;
+  }
+
   state.panning = true;
   el.board.classList.add("panning");
   const startCamX = state.cam.x, startCamY = state.cam.y;
   const startX = e.clientX, startY = e.clientY;
-
   const onMove = (ev) => {
     state.cam.x = startCamX + (ev.clientX - startX);
     state.cam.y = startCamY + (ev.clientY - startY);
@@ -287,81 +431,57 @@ el.board.addEventListener("mousedown", (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Zoom (rueda) centrado en el cursor
+// Zoom
 // ---------------------------------------------------------------------------
 el.board.addEventListener("wheel", (e) => {
   e.preventDefault();
   const rect = el.board.getBoundingClientRect();
   const sx = e.clientX - rect.left;
   const sy = e.clientY - rect.top;
-
-  // Punto del mundo bajo el cursor antes del zoom.
   const before = {
     x: (sx - state.cam.x) / state.cam.zoom,
     y: (sy - state.cam.y) / state.cam.zoom,
   };
-
   const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
   state.cam.zoom = Math.min(3, Math.max(0.25, state.cam.zoom * factor));
-
-  // Ajusta la cámara para que ese punto siga bajo el cursor.
   state.cam.x = sx - before.x * state.cam.zoom;
   state.cam.y = sy - before.y * state.cam.zoom;
   applyCamera();
 });
 
 // ---------------------------------------------------------------------------
-// Herramientas (postit / pin / connect)
+// Crear nota / grupo
 // ---------------------------------------------------------------------------
-function setTool(tool) {
-  state.tool = tool;
-  document.getElementById("postit-btn").classList.toggle("active", tool === "postit");
-  document.getElementById("pin-btn").classList.toggle("active", tool === "pin");
-  const cb = document.getElementById("connect-btn");
-  cb.classList.toggle("connect-active", tool === "connect");
-  el.colorPicker.classList.toggle("hidden", tool === "connect");
-  el.connectHint.classList.toggle("hidden", tool !== "connect");
-  if (tool !== "connect") state.connectFrom = null;
-}
-
-// Doble clic en el fondo -> crear nota en ese punto.
-el.board.addEventListener("dblclick", (e) => {
-  if (e.target !== el.board) return;
-  const w = screenToWorld(e.clientX, e.clientY);
-  createNote(w.x, w.y);
-});
-
 async function createNote(x, y) {
   const style = state.tool === "pin" ? "pin" : "postit";
   const note = await api(`/api/boards/${state.currentBoardId}/notes`, "POST", {
     x, y, style, color: state.activeColor,
   });
   state.notes.push(note);
-  const div = createNoteEl(note);
-  el.world.appendChild(div);
-  // Enfoca el contenido para editar al instante.
-  div.querySelector(".content").focus();
-  drawConnections();
+  renderAll();
+  applyFilter();
+  // Abre el inspector para añadir texto/etiquetas al momento.
+  openInspector(note);
+}
+
+async function createGroup(x, y) {
+  const g = await api(`/api/boards/${state.currentBoardId}/groups`, "POST", { x, y });
+  state.groups.push(g);
+  state.selectedGroupId = g.id;
+  state.selectedNoteId = null;
+  renderAll();
 }
 
 // ---------------------------------------------------------------------------
-// Conexiones
+// Conexiones (flechas)
 // ---------------------------------------------------------------------------
-function startConnect(n) {
-  setTool("connect");
-  state.connectFrom = n.id;
-  state.selectedNoteId = n.id;
-  setSelected();
-}
-
 function handleConnectClick(n) {
   if (state.connectFrom === null) {
     state.connectFrom = n.id;
-    state.selectedNoteId = n.id;
-    setSelected();
+    setSelections();
   } else if (state.connectFrom === n.id) {
-    // Mismo clic: cancelar selección inicial.
     state.connectFrom = null;
+    setSelections();
   } else {
     api(`/api/boards/${state.currentBoardId}/connections`, "POST", {
       from_id: state.connectFrom, to_id: n.id, label: "",
@@ -373,15 +493,18 @@ function handleConnectClick(n) {
   }
 }
 
-// Dibuja las rayas entre notas, con el centro de cada nota como extremo.
 function drawConnections() {
   el.connectionsLayer.innerHTML = "";
+  // Marker de flecha (definido una vez)
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--md-primary)"/></marker>`;
+  el.connectionsLayer.appendChild(defs);
+
   for (const c of state.connections) {
     const from = state.notes.find((n) => n.id === c.from_id);
     const to = state.notes.find((n) => n.id === c.to_id);
     if (!from || !to) continue;
-
-    // Centro en coords de mundo -> pantalla (incluye pan y zoom).
     const fx = state.cam.x + (from.x + from.width / 2) * state.cam.zoom;
     const fy = state.cam.y + (from.y + from.height / 2) * state.cam.zoom;
     const tx = state.cam.x + (to.x + to.width / 2) * state.cam.zoom;
@@ -389,11 +512,9 @@ function drawConnections() {
 
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("class", "conn");
-    // Línea con curvatura suave (bezier) para que se vea orgánica.
     const mx = (fx + tx) / 2, my = (fy + ty) / 2;
     path.setAttribute("d", `M ${fx} ${fy} Q ${mx} ${my} ${tx} ${ty}`);
 
-    // Etiqueta en el punto medio si hay texto.
     if (c.label) {
       const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
       text.setAttribute("class", "conn-label");
@@ -403,7 +524,6 @@ function drawConnections() {
       text.textContent = c.label;
       el.connectionsLayer.appendChild(text);
     }
-
     el.connectionsLayer.appendChild(path);
   }
 }
@@ -414,53 +534,225 @@ function drawConnections() {
 function saveNote(n) {
   api(`/api/notes/${n.id}`, "PATCH", {
     x: n.x, y: n.y, width: n.width, height: n.height, text: n.text,
-    style: n.style, color: n.color,
+    style: n.style, color: n.color, tags: n.tags, private: n.private,
   }).catch((err) => console.error(err));
 }
 
 function raiseNote(n, div) {
   api(`/api/notes/${n.id}/raise`, "POST").then(() => {
-    n.z = (Math.max(...state.notes.map((x) => x.z)) + 1);
+    n.z = Math.max(...state.notes.map((x) => x.z)) + 1;
     div.style.zIndex = n.z;
   });
 }
 
 async function deleteNote(n) {
+  if (!confirm("¿Eliminar esta nota?")) return;
   await api(`/api/notes/${n.id}`, "DELETE");
   state.notes = state.notes.filter((x) => x.id !== n.id);
   state.connections = state.connections.filter((c) => c.from_id !== n.id && c.to_id !== n.id);
-  if (state.selectedNoteId === n.id) state.selectedNoteId = null;
-  renderNotes();
-  drawConnections();
+  if (state.selectedNoteId === n.id) hideInspector();
+  renderAll();
+  applyFilter();
 }
 
 // ---------------------------------------------------------------------------
-// Selección / color
+// Selección
 // ---------------------------------------------------------------------------
-function setSelected() {
-  for (const d of el.world.children) {
+function setSelections() {
+  el.world.querySelectorAll(".note").forEach((d) => {
     d.classList.toggle("selected", Number(d.dataset.id) === state.selectedNoteId);
-  }
+  });
+  el.world.querySelectorAll(".group-box").forEach((d) => {
+    d.classList.toggle("selected", Number(d.dataset.groupId) === state.selectedGroupId);
+  });
 }
 
-function openColorPicker(n, div) {
-  el.colorPicker.classList.toggle("hidden");
-  const pick = async (color) => {
-    n.color = color;
-    div.className = `note ${n.style} ${color}`;
-    saveNote(n);
-    el.colorPicker.classList.add("hidden");
-  };
-  // Limpia listeners previos para no acumular.
-  for (const s of el.colorPicker.querySelectorAll(".swatch")) {
-    s.onclick = () => {
-      el.colorPicker.querySelectorAll(".swatch").forEach((x) => x.classList.remove("active"));
-      s.classList.add("active");
-      state.activeColor = s.dataset.color;
-      pick(s.dataset.color);
-    };
-  }
+// ---------------------------------------------------------------------------
+// Panel inspector
+// ---------------------------------------------------------------------------
+let editingNote = null;
+
+function openInspector(n) {
+  editingNote = n;
+  state.selectedNoteId = n.id;
+  setSelections();
+  el.inspector.classList.remove("hidden");
+  el.inspText.value = n.text;
+  el.inspTags.value = n.tags;
+  el.inspStylePostit.classList.toggle("active", n.style !== "pin");
+  el.inspStylePin.classList.toggle("active", n.style === "pin");
+  el.inspector.querySelectorAll(".insp-colors .swatch").forEach((s) => {
+    s.classList.toggle("active", s.dataset.color === n.color);
+  });
+  el.inspText.focus();
 }
+
+function hideInspector() {
+  el.inspector.classList.add("hidden");
+  editingNote = null;
+}
+
+el.inspText.addEventListener("input", () => {
+  if (!editingNote) return;
+  editingNote.text = el.inspText.value;
+  const noteEl = el.world.querySelector(`.note[data-id="${editingNote.id}"]`);
+  if (noteEl) noteEl.querySelector(".content").textContent = editingNote.text;
+  saveNote(editingNote);
+});
+el.inspTags.addEventListener("input", () => {
+  if (!editingNote) return;
+  editingNote.tags = el.inspTags.value.trim();
+  saveNote(editingNote);
+  // Re-render para actualizar chips
+  renderAll();
+  applyFilter();
+});
+el.inspStylePostit.addEventListener("click", () => {
+  if (!editingNote) return;
+  editingNote.style = "postit";
+  el.inspStylePostit.classList.add("active");
+  el.inspStylePin.classList.remove("active");
+  saveNote(editingNote);
+  renderAll();
+  applyFilter();
+});
+el.inspStylePin.addEventListener("click", () => {
+  if (!editingNote) return;
+  editingNote.style = "pin";
+  el.inspStylePin.classList.add("active");
+  el.inspStylePostit.classList.remove("active");
+  saveNote(editingNote);
+  renderAll();
+  applyFilter();
+});
+el.inspector.querySelectorAll(".insp-colors .swatch").forEach((s) => {
+  s.addEventListener("click", () => {
+    if (!editingNote) return;
+    editingNote.color = s.dataset.color;
+    el.inspector.querySelectorAll(".insp-colors .swatch").forEach((x) => x.classList.remove("active"));
+    s.classList.add("active");
+    saveNote(editingNote);
+    renderAll();
+    applyFilter();
+  });
+});
+el.inspDelete.addEventListener("click", () => {
+  if (editingNote) deleteNote(editingNote);
+});
+el.inspClose.addEventListener("click", hideInspector);
+
+// Botón de privacidad de la nota en el inspector
+const inspPrivate = document.getElementById("insp-private");
+inspPrivate.addEventListener("click", () => {
+  if (!editingNote) return;
+  editingNote.private = !editingNote.private;
+  inspPrivate.classList.toggle("active", editingNote.private);
+  inspPrivate.textContent = editingNote.private ? "🔓 Quitar privacidad" : "🔒 Marcar como privada";
+  saveNote(editingNote);
+  renderAll();
+  applyFilter();
+  applyPrivacy();
+});
+// Refleja el estado al abrir el inspector
+const origOpenInspector = openInspector;
+openInspector = (n) => {
+  origOpenInspector(n);
+  inspPrivate.classList.toggle("active", n.private);
+  inspPrivate.textContent = n.private ? "🔓 Quitar privacidad" : "🔒 Marcar como privada";
+};
+
+// ---------------------------------------------------------------------------
+// Búsqueda (filtra las notas visibles, atenuando las que no coinciden)
+// ---------------------------------------------------------------------------
+el.noteSearch.addEventListener("input", () => {
+  state.search = el.noteSearch.value.trim().toLowerCase();
+  el.searchClear.classList.toggle("hidden", !state.search);
+  applyFilter();
+});
+el.searchClear.addEventListener("click", () => {
+  el.noteSearch.value = "";
+  state.search = "";
+  el.searchClear.classList.add("hidden");
+  applyFilter();
+});
+
+function applyFilter() {
+  el.world.querySelectorAll(".note").forEach((d) => {
+    const n = state.notes.find((x) => x.id === Number(d.dataset.id));
+    if (!n) return;
+    const haystack = (n.text + " " + n.tags).toLowerCase();
+    const matches = !state.search || haystack.includes(state.search);
+    d.classList.toggle("dimmed", !matches);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Privacidad (toggle global: difumina las notas privadas)
+// ---------------------------------------------------------------------------
+function applyPrivacy() {
+  el.world.querySelectorAll(".note").forEach((d) => {
+    const n = state.notes.find((x) => x.id === Number(d.dataset.id));
+    if (!n) return;
+    d.classList.toggle("blurred", state.privacyOn && n.private);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Herramientas
+// ---------------------------------------------------------------------------
+function setTool(tool) {
+  state.tool = tool;
+  document.getElementById("postit-btn").classList.toggle("active", tool === "postit");
+  document.getElementById("pin-btn").classList.toggle("active", tool === "pin");
+  document.getElementById("group-btn").classList.toggle("active", tool === "group");
+  const cb = document.getElementById("connect-btn");
+  cb.classList.toggle("connect-active", tool === "connect");
+  el.colorPicker.classList.toggle("hidden", tool === "connect" || tool === "group");
+  el.connectHint.classList.toggle("hidden", tool !== "connect");
+  el.toolHint.classList.toggle("hidden", tool !== "postit" && tool !== "pin" && tool !== "group");
+  if (tool !== "connect") state.connectFrom = null;
+}
+
+document.getElementById("postit-btn").addEventListener("click", () => setTool("postit"));
+document.getElementById("pin-btn").addEventListener("click", () => setTool("pin"));
+document.getElementById("group-btn").addEventListener("click", () => setTool("group"));
+document.getElementById("connect-btn").addEventListener("click", () =>
+  setTool(state.tool === "connect" ? "postit" : "connect")
+);
+document.getElementById("zoom-in").addEventListener("click", () => {
+  state.cam.zoom = Math.min(3, state.cam.zoom * 1.2);
+  applyCamera();
+});
+document.getElementById("zoom-out").addEventListener("click", () => {
+  state.cam.zoom = Math.max(0.25, state.cam.zoom / 1.2);
+  applyCamera();
+});
+document.getElementById("reset-view").addEventListener("click", () => {
+  state.cam = { x: 0, y: 0, zoom: 1 };
+  applyCamera();
+});
+
+// Color picker (toolbar)
+document.querySelectorAll("#color-picker .swatch").forEach((s) => {
+  s.addEventListener("click", () => {
+    state.activeColor = s.dataset.color;
+    document.querySelectorAll("#color-picker .swatch").forEach((x) => x.classList.remove("active"));
+    s.classList.add("active");
+  });
+});
+
+// Esc cancela / cierra inspector
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    if (state.tool === "connect" || state.tool === "group") setTool("postit");
+    state.connectFrom = null;
+    hideInspector();
+  }
+  if (e.key === "Delete" && state.selectedNoteId !== null && !e.target.isContentEditable) {
+    const n = state.notes.find((x) => x.id === state.selectedNoteId);
+    if (n) deleteNote(n);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Pizarras: crear / renombrar / exportar
@@ -479,7 +771,10 @@ function openModal(placeholder, onSubmit) {
   el.modalCancel = el.modalCancel || document.getElementById("modal-cancel");
   el.modalOk.onclick = ok;
   el.modalCancel.onclick = () => el.modal.classList.add("hidden");
-  el.modalInput.onkeydown = (e) => { if (e.key === "Enter") ok(); if (e.key === "Escape") el.modal.classList.add("hidden"); };
+  el.modalInput.onkeydown = (e) => {
+    if (e.key === "Enter") ok();
+    if (e.key === "Escape") el.modal.classList.add("hidden");
+  };
 }
 
 document.getElementById("new-board-btn").addEventListener("click", () => {
@@ -493,8 +788,7 @@ document.getElementById("new-board-btn").addEventListener("click", () => {
 el.boardList.addEventListener("dblclick", (e) => {
   const item = e.target.closest(".board-item");
   if (!item || e.target.classList.contains("del")) return;
-  const id = state.boards.find((b) => el.boardList.querySelectorAll(".board-item")[state.boards.indexOf(b)] === item)?.id;
-  const board = state.boards.find((b) => b.id === id);
+  const board = state.boards.find((b) => el.boardList.querySelectorAll(".board-item")[state.boards.indexOf(b)] === item);
   openModal("Renombrar pizarra", async (name) => {
     await api(`/api/boards/${board.id}`, "PATCH", { name });
     board.name = name;
@@ -502,81 +796,31 @@ el.boardList.addEventListener("dblclick", (e) => {
   });
 });
 
-document.getElementById("export-btn").addEventListener("click", async () => {
+document.getElementById("export-btn").addEventListener("click", () => {
   if (!state.currentBoardId) return;
   window.open(`/api/boards/${state.currentBoardId}/export.md`, "_blank");
 });
 
 // ---------------------------------------------------------------------------
-// Botones de la toolbar y zoom
-// ---------------------------------------------------------------------------
-document.getElementById("postit-btn").addEventListener("click", () => setTool("postit"));
-document.getElementById("pin-btn").addEventListener("click", () => setTool("pin"));
-document.getElementById("connect-btn").addEventListener("click", () =>
-  setTool(state.tool === "connect" ? "postit" : "connect")
-);
-document.getElementById("zoom-in").addEventListener("click", () => {
-  const c = viewCenter();
-  state.cam.zoom = Math.min(3, state.cam.zoom * 1.2);
-  applyCamera();
-});
-document.getElementById("zoom-out").addEventListener("click", () => {
-  state.cam.zoom = Math.max(0.25, state.cam.zoom / 1.2);
-  applyCamera();
-});
-document.getElementById("reset-view").addEventListener("click", () => {
-  state.cam = { x: 0, y: 0, zoom: 1 };
-  applyCamera();
-});
-
-// Esc cancela selección de conexión.
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    if (state.tool === "connect") setTool("postit");
-    state.connectFrom = null;
-  }
-  // Supr borra la nota seleccionada.
-  if (e.key === "Delete" && state.selectedNoteId !== null && !e.target.isContentEditable) {
-    const n = state.notes.find((x) => x.id === state.selectedNoteId);
-    if (n) deleteNote(n);
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Estado de inferencia (opcional)
+// Estado de inferencia
 // ---------------------------------------------------------------------------
 async function loadLlmStatus() {
   try {
     const s = await api("/api/llm/status");
     if (s.enabled) el.llmDot.classList.add("on");
     el.llmDot.title = s.enabled ? `Inferencia: ${s.model}` : "Inferencia desactivada (define OPENAI_API_KEY)";
-  } catch { /* sin red, ignorar */ }
+  } catch { /* ignorar */ }
 }
 
 // ---------------------------------------------------------------------------
-// Arranque
-// ---------------------------------------------------------------------------
-async function init() {
-  // Centra la vista inicialmente en el origen.
-  applyCamera();
-  await loadBoards();
-  loadLlmStatus();
-  initBookmarks();
-}
-
-init();
-
-// ===========================================================================
 // PESTAÑA BOOKMARKS (estilo Raindrop)
-// ===========================================================================
+// ---------------------------------------------------------------------------
 const bmState = {
   collections: [],
   bookmarks: [],
-  currentCollection: null, // null = todos
+  currentCollection: null,
   search: "",
-  onlyFavs: false,
 };
-
 const bmEl = {
   tabBoards: document.getElementById("tab-boards"),
   tabBookmarks: document.getElementById("tab-bookmarks"),
@@ -603,7 +847,6 @@ const bmEl = {
   newCollectionBtn: document.getElementById("new-collection-btn"),
 };
 
-// --- Navegación entre pestañas ---
 function switchTab(tab) {
   const isBm = tab === "bookmarks";
   bmEl.tabBoards.classList.toggle("active", !isBm);
@@ -617,7 +860,6 @@ function switchTab(tab) {
 bmEl.tabBoards.addEventListener("click", () => switchTab("boards"));
 bmEl.tabBookmarks.addEventListener("click", () => switchTab("bookmarks"));
 
-// --- Colecciones ---
 async function loadCollections() {
   bmState.collections = await api("/api/collections");
   renderCollections();
@@ -626,26 +868,18 @@ async function loadCollections() {
 
 function renderCollections() {
   const container = bmEl.bmCollections;
-  // Mantén el botón "+ Nueva colección" y añade el de "Todos" después.
   container.querySelectorAll(".collections-item").forEach((n) => n.remove());
-
   const all = document.createElement("div");
   all.className = "collections-item" + (bmState.currentCollection === null ? " active" : "");
   all.textContent = "🗂️ Todos";
-  all.addEventListener("click", () => {
-    bmState.currentCollection = null;
-    renderCollections();
-    loadBookmarks();
-  });
+  all.addEventListener("click", () => { bmState.currentCollection = null; renderCollections(); loadBookmarks(); });
   container.appendChild(all);
-
   for (const c of bmState.collections) {
     const item = document.createElement("div");
     item.className = "collections-item" + (bmState.currentCollection === c.id ? " active" : "");
     item.textContent = c.name;
     const del = document.createElement("button");
-    del.className = "del";
-    del.textContent = "✕";
+    del.className = "del"; del.textContent = "✕";
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!confirm(`¿Borrar la colección "${c.name}"? Los links se mantienen sin colección.`)) return;
@@ -654,16 +888,11 @@ function renderCollections() {
       loadCollections();
     });
     item.appendChild(del);
-    item.addEventListener("click", () => {
-      bmState.currentCollection = c.id;
-      renderCollections();
-      loadBookmarks();
-    });
+    item.addEventListener("click", () => { bmState.currentCollection = c.id; renderCollections(); loadBookmarks(); });
     container.appendChild(item);
   }
 }
 
-// --- Cargar bookmarks ---
 async function loadBookmarks() {
   const params = new URLSearchParams();
   if (bmState.currentCollection !== null) params.set("collection", bmState.currentCollection);
@@ -672,44 +901,31 @@ async function loadBookmarks() {
   renderBookmarks();
 }
 
-// --- Render del grid masonry ---
 function renderBookmarks() {
   bmEl.grid.innerHTML = "";
   bmEl.empty.classList.toggle("hidden", bmState.bookmarks.length > 0);
-  bmEl.title.textContent =
-    bmState.currentCollection === null
-      ? "Todos los bookmarks"
-      : (bmState.collections.find((c) => c.id === bmState.currentCollection)?.name || "Bookmarks");
-
-  for (const b of bmState.bookmarks) {
-    bmEl.grid.appendChild(createBookmarkCard(b));
-  }
+  bmEl.title.textContent = bmState.currentCollection === null
+    ? "Todos los bookmarks"
+    : (bmState.collections.find((c) => c.id === bmState.currentCollection)?.name || "Bookmarks");
+  for (const b of bmState.bookmarks) bmEl.grid.appendChild(createBookmarkCard(b));
 }
 
-function hostOf(url) {
-  try { return new URL(url).hostname; } catch { return url; }
-}
+function hostOf(url) { try { return new URL(url).hostname; } catch { return url; } }
 
 function createBookmarkCard(b) {
   const card = document.createElement("div");
   card.className = "bm-card";
-
-  // Miniatura + estrella de favorito
   const thumb = document.createElement("div");
   thumb.className = "bm-thumb";
   if (b.thumbnail) {
     const img = document.createElement("img");
-    img.src = b.thumbnail;
-    img.alt = "";
-    img.loading = "lazy";
-    img.onerror = () => { img.remove(); };
+    img.src = b.thumbnail; img.alt = ""; img.loading = "lazy";
+    img.onerror = () => img.remove();
     thumb.appendChild(img);
   } else if (b.favicon) {
     const fav = document.createElement("img");
-    fav.className = "bm-favicon";
-    fav.src = b.favicon;
-    fav.alt = "";
-    fav.onerror = () => { fav.remove(); };
+    fav.className = "bm-favicon"; fav.src = b.favicon; fav.alt = "";
+    fav.onerror = () => fav.remove();
     thumb.appendChild(fav);
   }
   const star = document.createElement("button");
@@ -725,96 +941,72 @@ function createBookmarkCard(b) {
   thumb.appendChild(star);
   card.appendChild(thumb);
 
-  // Cuerpo
   const body = document.createElement("div");
   body.className = "bm-body";
-
   const title = document.createElement("div");
   title.className = "bm-title";
   const a = document.createElement("a");
-  a.href = b.url;
-  a.target = "_blank";
-  a.rel = "noopener";
+  a.href = b.url; a.target = "_blank"; a.rel = "noopener";
   a.textContent = b.title || b.url;
   title.appendChild(a);
   body.appendChild(title);
-
   if (b.excerpt) {
     const ex = document.createElement("div");
-    ex.className = "bm-excerpt";
-    ex.textContent = b.excerpt;
+    ex.className = "bm-excerpt"; ex.textContent = b.excerpt;
     body.appendChild(ex);
   }
-
   const host = document.createElement("div");
-  host.className = "bm-host";
-  host.textContent = hostOf(b.url);
+  host.className = "bm-host"; host.textContent = hostOf(b.url);
   body.appendChild(host);
-
   if (b.tags.trim()) {
     const tags = document.createElement("div");
     tags.className = "bm-tags";
     b.tags.split(",").map((t) => t.trim()).filter(Boolean).forEach((t) => {
       const span = document.createElement("span");
-      span.className = "bm-tag";
-      span.textContent = t;
+      span.className = "bm-tag"; span.textContent = t;
       tags.appendChild(span);
     });
     body.appendChild(tags);
   }
-
   const del = document.createElement("button");
-  del.className = "bm-del";
-  del.textContent = "✕ eliminar";
+  del.className = "bm-del"; del.textContent = "✕ eliminar";
   del.addEventListener("click", async () => {
     if (!confirm("¿Eliminar este bookmark?")) return;
     await api(`/api/bookmarks/${b.id}`, "DELETE");
     loadBookmarks();
   });
   body.appendChild(del);
-
   card.appendChild(body);
   return card;
 }
 
-// --- Búsqueda ---
-let searchTimer = null;
+let bmSearchTimer = null;
 bmEl.search.addEventListener("input", () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
+  clearTimeout(bmSearchTimer);
+  bmSearchTimer = setTimeout(() => {
     bmState.search = bmEl.search.value.trim();
     loadBookmarks();
   }, 250);
 });
 
-// --- Modal: añadir bookmark ---
 function openBmModal() {
   bmEl.modal.classList.remove("hidden");
-  bmEl.url.value = "";
-  bmEl.titleInput.value = "";
-  bmEl.excerpt.value = "";
-  bmEl.note.value = "";
-  bmEl.tags.value = "";
-  bmEl.fetchStatus.textContent = "";
-  // Poblado de colecciones en el select
+  bmEl.url.value = ""; bmEl.titleInput.value = ""; bmEl.excerpt.value = "";
+  bmEl.note.value = ""; bmEl.tags.value = ""; bmEl.fetchStatus.textContent = "";
   bmEl.collection.innerHTML = "";
   const opt = document.createElement("option");
-  opt.value = "";
-  opt.textContent = "Sin colección";
+  opt.value = ""; opt.textContent = "Sin colección";
   bmEl.collection.appendChild(opt);
   for (const c of bmState.collections) {
     const o = document.createElement("option");
-    o.value = c.id;
-    o.textContent = c.name;
+    o.value = c.id; o.textContent = c.name;
     o.selected = c.id === bmState.currentCollection;
     bmEl.collection.appendChild(o);
   }
   bmEl.url.focus();
 }
-
 bmEl.addBtn.addEventListener("click", openBmModal);
 bmEl.cancel.addEventListener("click", () => bmEl.modal.classList.add("hidden"));
-
 bmEl.fetchBtn.addEventListener("click", async () => {
   const url = bmEl.url.value.trim();
   if (!url) return;
@@ -828,19 +1020,14 @@ bmEl.fetchBtn.addEventListener("click", async () => {
     bmEl.fetchStatus.textContent = "No se pudo descubrir: " + e.message;
   }
 });
-
 bmEl.save.addEventListener("click", async () => {
   const url = bmEl.url.value.trim();
   if (!url) return;
   const collectionId = bmEl.collection.value ? Number(bmEl.collection.value) : null;
   try {
     await api("/api/bookmarks", "POST", {
-      url,
-      collection_id: collectionId,
-      title: bmEl.titleInput.value.trim(),
-      excerpt: bmEl.excerpt.value.trim(),
-      note: bmEl.note.value.trim(),
-      tags: bmEl.tags.value.trim(),
+      url, collection_id: collectionId, title: bmEl.titleInput.value.trim(),
+      excerpt: bmEl.excerpt.value.trim(), note: bmEl.note.value.trim(), tags: bmEl.tags.value.trim(),
     });
     bmEl.modal.classList.add("hidden");
     await loadBookmarks();
@@ -849,10 +1036,24 @@ bmEl.save.addEventListener("click", async () => {
   }
 });
 
-// Cerrar con Esc
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") bmEl.modal.classList.add("hidden");
-});
+// ---------------------------------------------------------------------------
+// Toggle global de privacidad en la barra superior
+// ---------------------------------------------------------------------------
+function addPrivacyToggle() {
+  const topbar = document.getElementById("topbar");
+  const toggle = document.createElement("button");
+  toggle.className = "privacy-toggle";
+  toggle.innerHTML = "🔒";
+  toggle.title = "Mostrar/ocultar notas privadas (difuminadas)";
+  toggle.addEventListener("click", () => {
+    state.privacyOn = !state.privacyOn;
+    toggle.classList.toggle("on", state.privacyOn);
+    applyPrivacy();
+  });
+  // Lo colocamos junto a la caja de búsqueda
+  const searchBox = document.querySelector(".search-box");
+  searchBox.appendChild(toggle);
+}
 
 function initBookmarks() {
   bmEl.newCollectionBtn.addEventListener("click", () => {
@@ -863,3 +1064,16 @@ function initBookmarks() {
     });
   });
 }
+
+// ---------------------------------------------------------------------------
+// Arranque
+// ---------------------------------------------------------------------------
+async function init() {
+  applyCamera();
+  await loadBoards();
+  loadLlmStatus();
+  initBookmarks();
+  addPrivacyToggle();
+}
+
+init();

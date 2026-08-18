@@ -69,6 +69,30 @@ pub struct NotePatch {
     style: Option<String>,
     #[serde(default)]
     color: Option<String>,
+    #[serde(default)]
+    tags: Option<String>,
+    #[serde(default)]
+    private: Option<bool>,
+}
+
+#[derive(Deserialize)]
+pub struct GroupIn {
+    x: f64,
+    y: f64,
+}
+
+#[derive(Deserialize)]
+pub struct GroupPatch {
+    #[serde(default)]
+    x: Option<f64>,
+    #[serde(default)]
+    y: Option<f64>,
+    #[serde(default)]
+    width: Option<f64>,
+    #[serde(default)]
+    height: Option<f64>,
+    #[serde(default)]
+    title: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -114,12 +138,13 @@ pub struct BookmarkFetchIn {
     url: String,
 }
 
-/// Datos completos de una pizarra (board + notas + conexiones).
+/// Datos completos de una pizarra (board + notas + conexiones + grupos).
 #[derive(serde::Serialize)]
 struct BoardData {
     board: db::Board,
     notes: Vec<db::Note>,
     connections: Vec<db::Link>,
+    groups: Vec<db::Group>,
 }
 
 // ---------------------------------------------------------------------------
@@ -146,14 +171,28 @@ pub fn router() -> Router<AppState> {
             "/api/connections/{id}",
             axum::routing::delete(delete_connection),
         )
+        .route("/api/boards/{id}/groups", post(create_group))
+        .route(
+            "/api/groups/{id}",
+            axum::routing::patch(update_group).delete(delete_group),
+        )
         .route("/api/llm/complete", post(llm_complete))
         .route("/api/llm/status", get(llm_status))
         // Bookmarks (estilo Raindrop)
-        .route("/api/collections", get(list_collections).post(create_collection))
-        .route("/api/collections/{id}", axum::routing::delete(delete_collection))
+        .route(
+            "/api/collections",
+            get(list_collections).post(create_collection),
+        )
+        .route(
+            "/api/collections/{id}",
+            axum::routing::delete(delete_collection),
+        )
         .route("/api/bookmarks", get(list_bookmarks).post(create_bookmark))
         .route("/api/bookmarks/fetch", post(fetch_bookmark_meta))
-        .route("/api/bookmarks/{id}", axum::routing::delete(delete_bookmark))
+        .route(
+            "/api/bookmarks/{id}",
+            axum::routing::delete(delete_bookmark),
+        )
         .route("/api/bookmarks/{id}/fav", post(toggle_favorite))
 }
 
@@ -233,10 +272,12 @@ async fn get_board_data(
         .ok_or_else(|| not_found("board not found"))?;
     let notes = with_db(&st, |conn| db::list_notes(conn, id))?;
     let connections = with_db(&st, |conn| db::list_connections(conn, id))?;
+    let groups = with_db(&st, |conn| db::list_groups(conn, id))?;
     Ok(Json(BoardData {
         board,
         notes,
         connections,
+        groups,
     }))
 }
 
@@ -323,8 +364,58 @@ async fn update_note(
     if let Some(v) = body.color {
         note.color = v;
     }
+    if let Some(v) = body.tags {
+        note.tags = v;
+    }
+    if let Some(v) = body.private {
+        note.private = v;
+    }
     with_db(&st, |conn| db::update_note(conn, &note))?;
     Ok(Json(note))
+}
+
+// ---------------------------------------------------------------------------
+// Groups (recuadros que agrupan notas)
+// ---------------------------------------------------------------------------
+
+async fn create_group(
+    State(st): State<AppState>,
+    Path(board_id): Path<i64>,
+    Json(body): Json<GroupIn>,
+) -> ApiResult<(StatusCode, Json<db::Group>)> {
+    let g = with_db(&st, |conn| db::create_group(conn, board_id, body.x, body.y))?;
+    Ok((StatusCode::CREATED, Json(g)))
+}
+
+async fn update_group(
+    State(st): State<AppState>,
+    Path(id): Path<i64>,
+    Json(body): Json<GroupPatch>,
+) -> ApiResult<Json<db::Group>> {
+    let mut g = with_db(&st, |conn| db::get_group(conn, id))?
+        .ok_or_else(|| not_found("group not found"))?;
+    if let Some(v) = body.x {
+        g.x = v;
+    }
+    if let Some(v) = body.y {
+        g.y = v;
+    }
+    if let Some(v) = body.width {
+        g.width = v;
+    }
+    if let Some(v) = body.height {
+        g.height = v;
+    }
+    if let Some(v) = body.title {
+        g.title = v;
+    }
+    with_db(&st, |conn| db::update_group(conn, &g))?;
+    Ok(Json(g))
+}
+
+async fn delete_group(State(st): State<AppState>, Path(id): Path<i64>) -> StatusCode {
+    with_db(&st, |conn| db::delete_group(conn, id)).expect("delete group");
+    StatusCode::NO_CONTENT
 }
 
 async fn raise_note(State(st): State<AppState>, Path(id): Path<i64>) -> StatusCode {
@@ -368,11 +459,16 @@ async fn delete_connection(State(st): State<AppState>, Path(id): Path<i64>) -> S
 // Bookmarks (estilo Raindrop)
 // ---------------------------------------------------------------------------
 
-async fn list_collections(State(st): State<AppState>) -> ApiResult<Json<Vec<db::BookmarkCollection>>> {
+async fn list_collections(
+    State(st): State<AppState>,
+) -> ApiResult<Json<Vec<db::BookmarkCollection>>> {
     with_db(&st, |conn| db::list_collections(conn)).map(Json)
 }
 
-async fn create_collection(State(st): State<AppState>, Json(body): Json<CollectionIn>) -> ApiResult<(StatusCode, Json<db::BookmarkCollection>)> {
+async fn create_collection(
+    State(st): State<AppState>,
+    Json(body): Json<CollectionIn>,
+) -> ApiResult<(StatusCode, Json<db::BookmarkCollection>)> {
     if body.name.trim().is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "name cannot be empty"));
     }
@@ -386,23 +482,37 @@ async fn delete_collection(State(st): State<AppState>, Path(id): Path<i64>) -> S
     StatusCode::NO_CONTENT
 }
 
-async fn list_bookmarks(State(st): State<AppState>, Query(q): Query<BookmarkQuery>) -> ApiResult<Json<Vec<db::Bookmark>>> {
-    let bm = with_db(&st, |conn| db::list_bookmarks(conn, q.collection, &q.q, q.favs))?;
+async fn list_bookmarks(
+    State(st): State<AppState>,
+    Query(q): Query<BookmarkQuery>,
+) -> ApiResult<Json<Vec<db::Bookmark>>> {
+    let bm = with_db(&st, |conn| {
+        db::list_bookmarks(conn, q.collection, &q.q, q.favs)
+    })?;
     Ok(Json(bm))
 }
 
 /// Previsualiza los metadatos de una URL SIN guardarla (para el formulario).
-async fn fetch_bookmark_meta(State(_st): State<AppState>, Json(body): Json<BookmarkFetchIn>) -> ApiResult<Json<meta::PageMeta>> {
+async fn fetch_bookmark_meta(
+    State(_st): State<AppState>,
+    Json(body): Json<BookmarkFetchIn>,
+) -> ApiResult<Json<meta::PageMeta>> {
     if body.url.trim().is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "url cannot be empty"));
     }
-    let meta = meta::fetch(body.url.trim())
-        .await
-        .map_err(|e| err(StatusCode::BAD_GATEWAY, format!("no se pudo leer la página: {e}")))?;
+    let meta = meta::fetch(body.url.trim()).await.map_err(|e| {
+        err(
+            StatusCode::BAD_GATEWAY,
+            format!("no se pudo leer la página: {e}"),
+        )
+    })?;
     Ok(Json(meta))
 }
 
-async fn create_bookmark(State(st): State<AppState>, Json(body): Json<BookmarkIn>) -> ApiResult<(StatusCode, Json<db::Bookmark>)> {
+async fn create_bookmark(
+    State(st): State<AppState>,
+    Json(body): Json<BookmarkIn>,
+) -> ApiResult<(StatusCode, Json<db::Bookmark>)> {
     let url = body.url.trim();
     if url.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "url cannot be empty"));
@@ -418,7 +528,11 @@ async fn create_bookmark(State(st): State<AppState>, Json(body): Json<BookmarkIn
     );
     if title.trim().is_empty() {
         if let Ok(m) = meta::fetch(url).await {
-            title = if m.title.is_empty() { url.to_string() } else { m.title };
+            title = if m.title.is_empty() {
+                url.to_string()
+            } else {
+                m.title
+            };
             if excerpt.is_empty() {
                 excerpt = m.excerpt;
             }
@@ -430,7 +544,17 @@ async fn create_bookmark(State(st): State<AppState>, Json(body): Json<BookmarkIn
     }
 
     let bm = with_db(&st, |conn| {
-        db::create_bookmark(conn, body.collection_id, url, &title, &excerpt, &body.note, &body.tags, &favicon, &thumbnail)
+        db::create_bookmark(
+            conn,
+            body.collection_id,
+            url,
+            &title,
+            &excerpt,
+            &body.note,
+            &body.tags,
+            &favicon,
+            &thumbnail,
+        )
     })?;
     Ok((StatusCode::CREATED, Json(bm)))
 }
@@ -440,7 +564,10 @@ async fn delete_bookmark(State(st): State<AppState>, Path(id): Path<i64>) -> Sta
     StatusCode::NO_CONTENT
 }
 
-async fn toggle_favorite(State(st): State<AppState>, Path(id): Path<i64>) -> ApiResult<Json<db::Bookmark>> {
+async fn toggle_favorite(
+    State(st): State<AppState>,
+    Path(id): Path<i64>,
+) -> ApiResult<Json<db::Bookmark>> {
     let bm = with_db(&st, |conn| db::toggle_bookmark_favorite(conn, id))?;
     Ok(Json(bm))
 }

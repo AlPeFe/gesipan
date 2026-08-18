@@ -34,6 +34,8 @@ pub struct Note {
     pub style: String, // "postit" | "pin"
     pub color: String, // clase CSS o nombre de color
     pub z: i64,        // orden de apilado (mayor = encima)
+    pub tags: String,  // etiquetas separadas por comas (metadata opcional)
+    pub private: bool, // si es privada (el toggle global la difumina)
 }
 
 /// Conexión ("raya") entre dos notas.
@@ -44,6 +46,18 @@ pub struct Link {
     pub from_id: i64,
     pub to_id: i64,
     pub label: String,
+}
+
+/// Grupo: un recuadro que agrupa visualmente un conjunto de notas.
+#[derive(Debug, Clone, Serialize)]
+pub struct Group {
+    pub id: i64,
+    pub board_id: i64,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub title: String,
 }
 
 /// Pizarra (lienzo infinito).
@@ -88,7 +102,9 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             text     TEXT NOT NULL DEFAULT '',
             style    TEXT NOT NULL DEFAULT 'postit',
             color    TEXT NOT NULL DEFAULT 'yellow',
-            z        INTEGER NOT NULL DEFAULT 0
+            z        INTEGER NOT NULL DEFAULT 0,
+            tags     TEXT NOT NULL DEFAULT '',
+            private  INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS connections (
@@ -97,6 +113,16 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             from_id  INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
             to_id    INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
             label    TEXT NOT NULL DEFAULT ''
+        );
+
+        CREATE TABLE IF NOT EXISTS groups (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+            x        REAL NOT NULL DEFAULT 0,
+            y        REAL NOT NULL DEFAULT 0,
+            width    REAL NOT NULL DEFAULT 300,
+            height   REAL NOT NULL DEFAULT 240,
+            title    TEXT NOT NULL DEFAULT ''
         );
 
         -- Pestaña Bookmarks (estilo Raindrop)
@@ -124,6 +150,20 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_bm_collection ON bookmarks(collection_id);
         "#,
     )?;
+
+    // Migración idempotente: para BD ya existentes sin las columnas nuevas
+    // en `notes`, las añadimos. `PRAGMA table_info` evita error si ya existen.
+    let cols: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('notes')")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<Result<_, _>>()?;
+    if !cols.iter().any(|c| c == "tags") {
+        conn.execute_batch("ALTER TABLE notes ADD COLUMN tags TEXT NOT NULL DEFAULT '';")?;
+    }
+    if !cols.iter().any(|c| c == "private") {
+        conn.execute_batch("ALTER TABLE notes ADD COLUMN private INTEGER NOT NULL DEFAULT 0;")?;
+    }
+
     Ok(())
 }
 
@@ -192,12 +232,14 @@ fn row_to_note(r: &rusqlite::Row) -> rusqlite::Result<Note> {
         style: r.get(7)?,
         color: r.get(8)?,
         z: r.get(9)?,
+        tags: r.get(10)?,
+        private: r.get::<_, i64>(11)? != 0,
     })
 }
 
 pub fn list_notes(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, text, style, color, z
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private
          FROM notes WHERE board_id = ?1 ORDER BY z, id",
     )?;
     let rows = stmt.query_map(params![board_id], row_to_note)?;
@@ -206,7 +248,7 @@ pub fn list_notes(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Note>>
 
 pub fn get_note(conn: &Connection, id: i64) -> anyhow::Result<Option<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, text, style, color, z
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private
          FROM notes WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], row_to_note)?;
@@ -236,11 +278,11 @@ pub fn create_note(
     Ok(get_note(conn, id)?.expect("just inserted"))
 }
 
-/// Actualiza campos mutables de una nota (posición, tamaño, texto, estilo, color).
+/// Actualiza campos mutables de una nota (posición, tamaño, texto, estilo, color, tags, private).
 pub fn update_note(conn: &Connection, note: &Note) -> anyhow::Result<()> {
     conn.execute(
-        "UPDATE notes SET x=?1, y=?2, width=?3, height=?4, text=?5, style=?6, color=?7, z=?8
-         WHERE id=?9",
+        "UPDATE notes SET x=?1, y=?2, width=?3, height=?4, text=?5, style=?6, color=?7, z=?8, tags=?9, private=?10
+         WHERE id=?11",
         params![
             note.x,
             note.y,
@@ -250,6 +292,8 @@ pub fn update_note(conn: &Connection, note: &Note) -> anyhow::Result<()> {
             note.style,
             note.color,
             note.z,
+            note.tags,
+            if note.private { 1 } else { 0 },
             note.id
         ],
     )?;
@@ -334,6 +378,59 @@ pub fn delete_connection(conn: &Connection, id: i64) -> anyhow::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// Groups (recuadros que agrupan notas)
+// ---------------------------------------------------------------------------
+
+fn row_to_group(r: &rusqlite::Row) -> rusqlite::Result<Group> {
+    Ok(Group {
+        id: r.get(0)?,
+        board_id: r.get(1)?,
+        x: r.get(2)?,
+        y: r.get(3)?,
+        width: r.get(4)?,
+        height: r.get(5)?,
+        title: r.get(6)?,
+    })
+}
+
+pub fn list_groups(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Group>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, board_id, x, y, width, height, title FROM groups WHERE board_id = ?1 ORDER BY id",
+    )?;
+    let rows = stmt.query_map(params![board_id], row_to_group)?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+pub fn create_group(conn: &Connection, board_id: i64, x: f64, y: f64) -> anyhow::Result<Group> {
+    conn.execute(
+        "INSERT INTO groups (board_id, x, y, width, height, title) VALUES (?1, ?2, ?3, 300, 240, '')",
+        params![board_id, x, y],
+    )?;
+    let id = conn.last_insert_rowid();
+    Ok(get_group(conn, id)?.expect("just inserted"))
+}
+
+pub fn get_group(conn: &Connection, id: i64) -> anyhow::Result<Option<Group>> {
+    let mut stmt =
+        conn.prepare("SELECT id, board_id, x, y, width, height, title FROM groups WHERE id = ?1")?;
+    let mut rows = stmt.query_map(params![id], row_to_group)?;
+    Ok(rows.next().transpose()?)
+}
+
+pub fn update_group(conn: &Connection, g: &Group) -> anyhow::Result<()> {
+    conn.execute(
+        "UPDATE groups SET x=?1, y=?2, width=?3, height=?4, title=?5 WHERE id=?6",
+        params![g.x, g.y, g.width, g.height, g.title, g.id],
+    )?;
+    Ok(())
+}
+
+pub fn delete_group(conn: &Connection, id: i64) -> anyhow::Result<()> {
+    conn.execute("DELETE FROM groups WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Export a Markdown
 // ---------------------------------------------------------------------------
 
@@ -345,9 +442,39 @@ pub fn export_board_markdown(conn: &Connection, board_id: i64) -> anyhow::Result
         get_board(conn, board_id)?.ok_or_else(|| anyhow::anyhow!("board {board_id} not found"))?;
     let notes = list_notes(conn, board_id)?;
     let connections = list_connections(conn, board_id)?;
+    let groups = list_groups(conn, board_id)?;
 
     let mut md = String::new();
     md.push_str(&format!("# {}\n\n", board.name));
+
+    // Grupos (recuadros) si los hay.
+    if !groups.is_empty() {
+        md.push_str("## Grupos\n\n");
+        for (gi, g) in groups.iter().enumerate() {
+            let title = if g.title.trim().is_empty() {
+                format!("Grupo {gi}")
+            } else {
+                g.title.clone()
+            };
+            // Notas contenidas en el grupo.
+            let inner: Vec<String> = notes
+                .iter()
+                .enumerate()
+                .filter(|(_, n)| {
+                    n.x >= g.x - 4.0
+                        && n.y >= g.y - 4.0
+                        && n.x + n.width <= g.x + g.width + 4.0
+                        && n.y + n.height <= g.y + g.height + 4.0
+                })
+                .map(|(i, _)| format!("[{i}]"))
+                .collect();
+            md.push_str(&format!("### 🗂️ {title}\n"));
+            if !inner.is_empty() {
+                md.push_str(&format!("Contiene notas: {}\n", inner.join(", ")));
+            }
+            md.push('\n');
+        }
+    }
 
     if notes.is_empty() {
         md.push_str("*(pizarra vacía)*\n");
@@ -366,6 +493,17 @@ pub fn export_board_markdown(conn: &Connection, board_id: i64) -> anyhow::Result
         if !n.text.trim().is_empty() {
             md.push_str(&n.text);
             md.push('\n');
+        }
+        if !n.tags.trim().is_empty() {
+            let tags: Vec<String> = n
+                .tags
+                .split(',')
+                .map(|t| format!("`{}`", t.trim()))
+                .filter(|t| t.len() > 2)
+                .collect();
+            if !tags.is_empty() {
+                md.push_str(&format!("\n*Etiquetas: {}*\n", tags.join(" ")));
+            }
         }
         md.push('\n');
     }
@@ -422,7 +560,10 @@ pub struct Bookmark {
 pub fn list_collections(conn: &Connection) -> anyhow::Result<Vec<BookmarkCollection>> {
     let mut stmt = conn.prepare("SELECT id, name FROM bookmark_collections ORDER BY name")?;
     let rows = stmt.query_map([], |r| {
-        Ok(BookmarkCollection { id: r.get(0)?, name: r.get(1)? })
+        Ok(BookmarkCollection {
+            id: r.get(0)?,
+            name: r.get(1)?,
+        })
     })?;
     Ok(rows.collect::<Result<_, _>>()?)
 }
@@ -433,12 +574,18 @@ pub fn create_collection(conn: &Connection, name: &str) -> anyhow::Result<Bookma
         params![name],
     )?;
     let id = conn.last_insert_rowid();
-    Ok(BookmarkCollection { id, name: name.to_string() })
+    Ok(BookmarkCollection {
+        id,
+        name: name.to_string(),
+    })
 }
 
 pub fn delete_collection(conn: &Connection, id: i64) -> anyhow::Result<()> {
     // ON DELETE SET NULL desvincula los bookmarks de la colección borrada.
-    conn.execute("DELETE FROM bookmark_collections WHERE id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM bookmark_collections WHERE id = ?1",
+        params![id],
+    )?;
     Ok(())
 }
 
@@ -493,7 +640,10 @@ pub fn list_bookmarks(
     sql.push_str(" ORDER BY favorite DESC, id DESC");
 
     let mut stmt = conn.prepare(&sql)?;
-    let it = stmt.query_map(rusqlite::params_from_iter(params_vec.iter()), row_to_bookmark)?;
+    let it = stmt.query_map(
+        rusqlite::params_from_iter(params_vec.iter()),
+        row_to_bookmark,
+    )?;
     Ok(it.collect::<Result<_, _>>()?)
 }
 
@@ -521,7 +671,16 @@ pub fn create_bookmark(
     conn.execute(
         "INSERT INTO bookmarks (collection_id, url, title, excerpt, note, tags, favicon, thumbnail)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![collection_id, url, title, excerpt, note, tags, favicon, thumbnail],
+        params![
+            collection_id,
+            url,
+            title,
+            excerpt,
+            note,
+            tags,
+            favicon,
+            thumbnail
+        ],
     )?;
     let id = conn.last_insert_rowid();
     Ok(get_bookmark(conn, id)?.expect("just inserted"))

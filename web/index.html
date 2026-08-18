@@ -8,15 +8,15 @@
 </head>
 <body>
 
-  <!-- ============ SIDEBAR: pestañas + contenido ============ -->
+  <!-- ============ SIDEBAR ============ -->
   <aside id="sidebar">
     <div class="sidebar-header">
-      <h1>📌 Pizarra</h1>
+      <h1>Pizarra</h1>
       <button id="new-board-btn" class="icon-btn" title="Nueva pizarra">＋</button>
     </div>
     <nav id="tabs">
-      <button id="tab-boards" class="tab active">🗒️ Pizarras</button>
-      <button id="tab-bookmarks" class="tab">🔖 Bookmarks</button>
+      <button id="tab-boards" class="tab active">Pizarras</button>
+      <button id="tab-bookmarks" class="tab">Bookmarks</button>
     </nav>
     <div id="board-list" class="board-list"></div>
     <div id="bm-collections" class="board-list hidden">
@@ -30,18 +30,25 @@
 
   <!-- ============ WHITEBOARD ============ -->
   <main id="board">
-    <!-- Canvas SVG para las rayas/conexiones entre notas (detrás de las notas) -->
     <svg id="connections-layer"></svg>
-
-    <!-- Lienzo de mundo: aquí viven las notas. Se transforma con pan/zoom. -->
     <div id="world"></div>
 
-    <!-- Controles flotantes -->
+    <!-- Barra superior: búsqueda + herramientas -->
+    <div id="topbar">
+      <div id="search-box" class="search-box">
+        <span class="search-icon">⌕</span>
+        <input id="note-search" type="text" placeholder="Buscar notas por texto o etiqueta…" />
+        <button id="search-clear" class="search-clear hidden">✕</button>
+      </div>
+    </div>
+
+    <!-- Barra de herramientas flotante -->
     <div id="toolbar">
-      <button id="postit-btn" class="tool-btn active" title="Nota post-it">📝</button>
+      <button id="postit-btn" class="tool-btn active" title="Nota post-it (clic en el lienzo para crear)">📝</button>
       <button id="pin-btn" class="tool-btn" title="Nota con chincheta">📌</button>
+      <button id="group-btn" class="tool-btn" title="Grupo: recuadro que agrupa notas">▣</button>
       <span class="tool-sep"></span>
-      <button id="connect-btn" class="tool-btn" title="Conectar notas (raya)">〰️</button>
+      <button id="connect-btn" class="tool-btn" title="Unir dos notas con una línea">⤳</button>
       <span class="tool-sep"></span>
       <button id="zoom-in" class="tool-btn">＋</button>
       <span id="zoom-label">100%</span>
@@ -60,10 +67,45 @@
     </div>
 
     <!-- Aviso de modo conexión -->
-    <div id="connect-hint" class="connect-hint hidden">Selecciona dos notas para conectarlas · Esc para cancelar</div>
+    <div id="connect-hint" class="connect-hint hidden">Haz clic en la primera nota, luego en la segunda para unirlas · Esc cancela</div>
+
+    <!-- Sugerencia al activar herramienta de nota -->
+    <div id="tool-hint" class="tool-hint hidden">Clic en el lienzo para colocar la nota</div>
   </main>
 
-  <!-- ============ BOOKMARKS VIEW (estilo Raindrop) ============ -->
+  <!-- ============ PANEL INSPECTOR (metadata de la nota seleccionada) ============ -->
+  <aside id="inspector" class="hidden">
+    <div class="inspector-head">
+      <h3>Nota</h3>
+      <button id="insp-close" class="icon-btn small">✕</button>
+    </div>
+    <label>Texto</label>
+    <textarea id="insp-text" rows="5" placeholder="Escribe tu nota…"></textarea>
+    <label>Etiquetas (separadas por comas)</label>
+    <input id="insp-tags" type="text" placeholder="ideas, urgente, kpop…" />
+    <label>Estilo</label>
+    <div class="insp-styles">
+      <button id="insp-style-postit" class="style-btn active">📝 Post-it</button>
+      <button id="insp-style-pin" class="style-btn">📌 Chincheta</button>
+    </div>
+    <label>Color</label>
+    <div class="insp-colors">
+      <div class="swatch yellow active" data-color="yellow"></div>
+      <div class="swatch pink" data-color="pink"></div>
+      <div class="swatch green" data-color="green"></div>
+      <div class="swatch blue" data-color="blue"></div>
+      <div class="swatch purple" data-color="purple"></div>
+      <div class="swatch white" data-color="white"></div>
+    </div>
+    <div class="insp-privacy">
+      <button id="insp-private" class="privacy-note-btn">🔒 Marcar como privada</button>
+    </div>
+    <div class="insp-actions">
+      <button id="insp-delete" class="danger-btn">🗑 Eliminar</button>
+    </div>
+  </aside>
+
+  <!-- ============ BOOKMARKS VIEW ============ -->
   <main id="bookmarks-view" class="hidden">
     <div class="bm-topbar">
       <h2 id="bm-collection-title">Todos los bookmarks</h2>

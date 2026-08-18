@@ -116,8 +116,11 @@ fn extract_href(html: &str) -> Option<String> {
 fn resolve_url(href: &str, base: &str) -> String {
     let href = href.trim();
     // No tocar URIs de datos ni otros esquemas (javascript:, data:, etc.).
-    if href.contains("://") || href.starts_with("data:") || href.starts_with("javascript:")
-        || href.starts_with("mailto:") || href.starts_with("tel:")
+    if href.contains("://")
+        || href.starts_with("data:")
+        || href.starts_with("javascript:")
+        || href.starts_with("mailto:")
+        || href.starts_with("tel:")
     {
         return href.to_string();
     }
