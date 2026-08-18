@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <link rel="stylesheet" href="style.6.css" />
+  <link rel="stylesheet" href="style.7.css" />
 </head>
 <body>
 
@@ -13,18 +13,19 @@
   <aside id="sidebar">
     <div class="sidebar-header">
       <h1>Gesipan</h1>
-      <button id="new-board-btn" class="icon-btn" title="Nueva pizarra">＋</button>
+      <button id="new-board-btn" class="icon-btn" title="Nuevo board">＋</button>
     </div>
     <nav id="tabs">
-      <button id="tab-boards" class="tab active">Pizarras</button>
+      <button id="tab-boards" class="tab active">Boards</button>
       <button id="tab-bookmarks" class="tab">Bookmarks</button>
     </nav>
     <div id="board-list" class="board-list"></div>
     <div id="bm-collections" class="board-list hidden">
+      <button id="bm-fav-btn" class="collections-add" title="Ver solo favoritos">★ Favoritas</button>
       <button id="new-collection-btn" class="collections-add">＋ Nueva colección</button>
     </div>
     <div class="sidebar-footer">
-      <button id="export-btn" class="ghost-btn" title="Exportar esta pizarra a Markdown">⬇ .md</button>
+      <button id="export-btn" class="ghost-btn" title="Exportar este board a Markdown">⬇ .md</button>
       <span id="llm-dot" class="llm-dot" title="Inferencia">●</span>
     </div>
   </aside>
@@ -46,20 +47,23 @@
       <button id="trash-btn" class="icon-btn" title="Papelera">🗑️</button>
     </div>
 
-    <!-- Barra de herramientas (minimal, estilo apps de notas) -->
+    <!-- Barra inferior: solo el botón "más" + zoom -->
     <div id="toolbar">
-      <button id="new-note-btn" class="tool-btn new-note" title="Nueva nota">＋</button>
-      <button id="private-create-btn" class="tool-btn" title="Crear nota privada (difuminada)">👁️</button>
-      <span class="tool-sep"></span>
-      <button id="postit-btn" class="tool-btn active" title="Nota post-it">📝</button>
-      <button id="pin-btn" class="tool-btn" title="Nota con chincheta">📌</button>
-      <button id="group-btn" class="tool-btn" title="Grupo">▣</button>
-      <button id="connect-btn" class="tool-btn" title="Unir notas">⤳</button>
+      <button id="new-note-btn" class="tool-btn new-note" title="Crear (nota, grupo, flecha…)">＋</button>
       <span class="tool-sep"></span>
       <button id="zoom-out" class="tool-btn">－</button>
       <span id="zoom-label">100%</span>
       <button id="zoom-in" class="tool-btn">＋</button>
       <button id="reset-view" class="tool-btn" title="Centrar">⌂</button>
+    </div>
+
+    <!-- Menú de tipos que abre el botón ＋ -->
+    <div id="create-menu" class="create-menu hidden">
+      <button data-type="postit" class="create-item">📝 Nota post-it</button>
+      <button data-type="pin" class="create-item">📌 Nota chincheta</button>
+      <button data-type="private" class="create-item">👁️ Nota privada</button>
+      <button data-type="group" class="create-item">▣ Grupo</button>
+      <button data-type="connect" class="create-item">⤳ Flecha / unir</button>
     </div>
 
     <div id="color-picker" class="color-picker hidden">
@@ -71,64 +75,58 @@
       <div class="swatch white" data-color="white"></div>
     </div>
 
-    <div id="connect-hint" class="connect-hint hidden">Clic en un ancla de la 1ª nota y luego de la 2ª · Esc cancela</div>
-    <div id="tool-hint" class="tool-hint hidden">Clic en el lienzo para crear un grupo · Esc cancela</div>
+    <div id="connect-hint" class="connect-hint hidden">Arrastra de un ancla a otro ancla para unir · Esc cancela</div>
+    <div id="tool-hint" class="tool-hint hidden">Clic en el lienzo para crear · Esc cancela</div>
+
+    <!-- Inspector flotante (aparece sobre la nota seleccionada/creada) -->
+    <div id="inspector" class="hidden">
+      <div class="inspector-head">
+        <h3>Nota</h3>
+        <button id="insp-close" class="icon-btn small">✕</button>
+      </div>
+      <label>Texto</label>
+      <textarea id="insp-text" rows="4" placeholder="Escribe tu nota…"></textarea>
+      <label>Etiquetas (separadas por comas)</label>
+      <input id="insp-tags" type="text" placeholder="ideas, urgente…" />
+      <div class="insp-styles">
+        <button id="insp-style-postit" class="style-btn active">📝</button>
+        <button id="insp-style-pin" class="style-btn">📌</button>
+      </div>
+      <div class="insp-colors">
+        <div class="swatch yellow active" data-color="yellow"></div>
+        <div class="swatch pink" data-color="pink"></div>
+        <div class="swatch green" data-color="green"></div>
+        <div class="swatch blue" data-color="blue"></div>
+        <div class="swatch purple" data-color="purple"></div>
+        <div class="swatch white" data-color="white"></div>
+      </div>
+      <div class="insp-buttons">
+        <button id="insp-private" class="ghost-btn small">👁️ Privada</button>
+        <button id="insp-group" class="ghost-btn small">📌 Grupo</button>
+        <button id="insp-delete" class="danger-btn small">🗑</button>
+      </div>
+    </div>
   </main>
 
-  <!-- ============ PANEL INSPECTOR ============ -->
-  <aside id="inspector" class="hidden">
-    <div class="inspector-head">
-      <h3>Nota</h3>
-      <button id="insp-close" class="icon-btn small">✕</button>
-    </div>
-    <label>Texto</label>
-    <textarea id="insp-text" rows="5" placeholder="Escribe tu nota…"></textarea>
-    <label>Etiquetas (separadas por comas)</label>
-    <input id="insp-tags" type="text" placeholder="ideas, urgente…" />
-    <label>Estilo</label>
-    <div class="insp-styles">
-      <button id="insp-style-postit" class="style-btn active">📝 Post-it</button>
-      <button id="insp-style-pin" class="style-btn">📌 Chincheta</button>
-    </div>
-    <label>Color</label>
-    <div class="insp-colors">
-      <div class="swatch yellow active" data-color="yellow"></div>
-      <div class="swatch pink" data-color="pink"></div>
-      <div class="swatch green" data-color="green"></div>
-      <div class="swatch blue" data-color="blue"></div>
-      <div class="swatch purple" data-color="purple"></div>
-      <div class="swatch white" data-color="white"></div>
-    </div>
-    <div class="insp-privacy">
-      <button id="insp-private" class="privacy-note-btn">🔒 Marcar como privada</button>
-    </div>
-    <div class="insp-privacy">
-      <button id="insp-group" class="privacy-note-btn">📌 Anclar a grupo</button>
-    </div>
-    <div class="insp-actions">
-      <button id="insp-delete" class="danger-btn">🗑 Eliminar</button>
-    </div>
-  </aside>
-
-  <!-- ============ BOOKMARKS VIEW (estilo Raindrop) ============ -->
+  <!-- ============ BOOKMARKS VIEW ============ -->
   <main id="bookmarks-view" class="hidden">
     <div class="bm-topbar">
       <h2 id="bm-collection-title">Todos los bookmarks</h2>
       <div class="bm-search">
         <input id="bm-search-input" type="text" placeholder="Buscar…" />
       </div>
-      <button id="bm-sort-btn" class="ghost-btn" title="Ordenar">⇅ Fecha</button>
-      <button id="bm-export-btn" class="ghost-btn" title="Exportar a Markdown">⬇ .md</button>
-      <button id="bm-add-btn" class="primary-btn">＋ Añadir link</button>
+      <button id="bm-sort-btn" class="ghost-btn" title="Ordenar">⇅</button>
+      <button id="bm-export-btn" class="ghost-btn" title="Exportar a Markdown">⬇</button>
+      <button id="bm-add-btn" class="primary-btn">＋</button>
     </div>
-    <div id="bm-grid" class="bm-grid"></div>
-    <div id="bm-empty" class="bm-empty hidden">No hay bookmarks aquí. Añade el primero con "＋ Añadir link".</div>
+    <div id="bm-list" class="bm-list"></div>
+    <div id="bm-empty" class="bm-empty hidden">No hay bookmarks. Añade uno con ＋.</div>
   </main>
 
   <!-- Diálogo para pedir confirmación/nombre -->
   <div id="modal" class="modal hidden">
     <div class="modal-card">
-      <input id="modal-input" type="text" placeholder="Nombre de la pizarra" />
+      <input id="modal-input" type="text" placeholder="Nombre del board" />
       <div class="modal-actions">
         <button id="modal-cancel" class="ghost-btn">Cancelar</button>
         <button id="modal-ok" class="primary-btn">Aceptar</button>
@@ -143,16 +141,12 @@
       <label>URL</label>
       <input id="bm-url" type="url" placeholder="https://…" />
       <div class="bm-fetch-row">
-        <button id="bm-fetch-btn" class="ghost-btn">✨ Descubrir metadatos</button>
+        <button id="bm-fetch-btn" class="ghost-btn">✨ Descubrir</button>
         <span id="bm-fetch-status" class="bm-fetch-status"></span>
       </div>
       <label>Título</label>
-      <input id="bm-title" type="text" placeholder="Título (se detecta automáticamente)" />
-      <label>Descripción</label>
-      <textarea id="bm-excerpt" rows="2" placeholder="Descripción"></textarea>
-      <label>Nota</label>
-      <textarea id="bm-note" rows="2" placeholder="Nota personal"></textarea>
-      <label>Etiquetas (separadas por comas)</label>
+      <input id="bm-title" type="text" placeholder="Título (auto)" />
+      <label>Etiquetas</label>
       <input id="bm-tags" type="text" placeholder="tech, kpop, dev" />
       <label>Colección</label>
       <select id="bm-collection"></select>
@@ -176,6 +170,6 @@
     </div>
   </div>
 
-  <script src="app.5.js"></script>
+  <script src="app.6.js"></script>
 </body>
 </html>
