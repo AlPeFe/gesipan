@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <link rel="stylesheet" href="style.8.css" />
+  <link rel="stylesheet" href="style.9.css" />
 </head>
 <body>
 
@@ -48,7 +48,7 @@
 
     <!-- Barra inferior: solo el botón "más" + zoom -->
     <div id="toolbar">
-      <button id="new-note-btn" class="tool-btn new-note" title="Crear (nota, grupo, flecha…)">＋</button>
+      <button id="new-note-btn" class="tool-btn new-note" title="Crear (nota, grupo, flecha…)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
       <span class="tool-sep"></span>
       <button id="zoom-out" class="tool-btn">－</button>
       <span id="zoom-label">100%</span>
@@ -58,10 +58,10 @@
 
     <!-- Menú de tipos que abre el botón ＋ -->
     <div id="create-menu" class="create-menu hidden">
-      <button data-type="postit" class="create-item">📝 Nota post-it</button>
-      <button data-type="pin" class="create-item">📌 Nota chincheta</button>
-      <button data-type="private" class="create-item">👁️ Nota privada</button>
-      <button data-type="group" class="create-item">▣ Grupo</button>
+      <button data-type="postit" class="create-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 4h16v16H4z" fill="currentColor" fill-opacity=".12"/><path d="M4 4h16v16H4z"/></svg>Nota post-it</button>
+      <button data-type="pin" class="create-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4h6M10 4v6l-3 4h10l-3-4V4M8.5 18h7" stroke-linecap="round"/></svg>Nota chincheta</button>
+      <button data-type="private" class="create-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Nota privada</button>
+      <button data-type="group" class="create-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>Grupo</button>
     </div>
 
     <div id="color-picker" class="color-picker hidden">
@@ -76,33 +76,39 @@
     <div id="connect-hint" class="connect-hint hidden">Arrastra de un ancla a otro ancla para unir · Esc cancela</div>
     <div id="tool-hint" class="tool-hint hidden">Clic en el lienzo para crear · Esc cancela</div>
 
-    <!-- Inspector flotante (aparece sobre la nota seleccionada/creada) -->
+    <!-- Inspector contextual (popup junto a la nota seleccionada) -->
     <div id="inspector" class="hidden">
-      <div class="inspector-head">
-        <h3>Nota</h3>
-        <button id="insp-close" class="icon-btn small">✕</button>
+      <div class="insp-head">
+        <div class="insp-title">Nota</div>
+        <button id="insp-close" class="icon-btn small" aria-label="Cerrar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <label>Texto</label>
-      <textarea id="insp-text" rows="4" placeholder="Escribe tu nota…"></textarea>
-      <label>Etiquetas (separadas por comas)</label>
-      <input id="insp-tags" type="text" placeholder="ideas, urgente…" />
-      <div class="insp-styles">
-        <button id="insp-style-postit" class="style-btn active">📝</button>
-        <button id="insp-style-pin" class="style-btn">📌</button>
+      <div class="insp-row insp-tags-row">
+        <label for="insp-tags">Etiquetas</label>
+        <input id="insp-tags" type="text" placeholder="ideas, urgente…" />
       </div>
-      <div class="insp-colors">
-        <div class="swatch yellow active" data-color="yellow"></div>
-        <div class="swatch pink" data-color="pink"></div>
-        <div class="swatch green" data-color="green"></div>
-        <div class="swatch blue" data-color="blue"></div>
-        <div class="swatch purple" data-color="purple"></div>
-        <div class="swatch white" data-color="white"></div>
+      <div class="insp-row">
+        <label>Estilo</label>
+        <div class="insp-styles">
+          <button id="insp-style-postit" class="style-btn active" title="Post-it"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 4h16v16H4z" fill="currentColor" fill-opacity=".15"/><path d="M4 4h16v16H4z"/></svg></button>
+          <button id="insp-style-pin" class="style-btn" title="Chincheta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4h6M10 4v6l-3 4h10l-3-4V4M8.5 18h7" stroke-linecap="round"/></svg></button>
+        </div>
       </div>
-      <div class="insp-buttons">
-        <button id="insp-connect" class="ghost-btn small">⤳ Unir</button>
-        <button id="insp-private" class="ghost-btn small">👁️ Privada</button>
-        <button id="insp-group" class="ghost-btn small">📌 Grupo</button>
-        <button id="insp-delete" class="danger-btn small">🗑</button>
+      <div class="insp-row">
+        <label>Color</label>
+        <div class="insp-colors">
+          <div class="swatch yellow active" data-color="yellow"></div>
+          <div class="swatch pink" data-color="pink"></div>
+          <div class="swatch green" data-color="green"></div>
+          <div class="swatch blue" data-color="blue"></div>
+          <div class="swatch purple" data-color="purple"></div>
+          <div class="swatch white" data-color="white"></div>
+        </div>
+      </div>
+      <div class="insp-actions">
+        <button id="insp-connect" class="act-btn" title="Unir a otra nota"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span>Unir</span></button>
+        <button id="insp-group" class="act-btn" title="Grupo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span>Grupo</span></button>
+        <button id="insp-private" class="act-btn" title="Privada"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Privada</span></button>
+        <button id="insp-delete" class="act-btn danger" title="Eliminar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg><span>Borrar</span></button>
       </div>
     </div>
   </main>
@@ -169,6 +175,6 @@
     </div>
   </div>
 
-  <script src="app.8.js"></script>
+  <script src="app.9.js"></script>
 </body>
 </html>
