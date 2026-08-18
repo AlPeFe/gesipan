@@ -19,6 +19,7 @@ const state = {
   selectedNoteId: null, selectedGroupId: null,
   drag: null, panning: false, resizing: null,
   privacyOn: false, search: "",
+  createPrivate: false,      // si las notas nuevas nacen privadas (difuminadas)
 };
 
 // ---------------------------------------------------------------------------
@@ -467,10 +468,13 @@ async function createNote(x, y) {
   const note = await api(`/api/boards/${state.currentBoardId}/notes`, "POST", {
     x, y, style: state.noteStyle, color: state.activeColor,
   });
+  // Si el toggle de "crear privada" está activo, marca la nota como privada.
+  if (state.createPrivate) {
+    note.private = true;
+    await api(`/api/notes/${note.id}`, "PATCH", { private: true });
+  }
   state.notes.push(note);
   renderAll(); applyFilter(); applyPrivacy(); applyToolMode();
-  // Centrar la vista en la nueva nota
-  const c = screenToWorld(viewCenterScreen());
   // abre en detalle grande
   openNoteDetail(note);
 }
@@ -540,7 +544,7 @@ function openInspector(n) {
   el.inspector.querySelectorAll(".insp-colors .swatch").forEach(s => s.classList.toggle("active", s.dataset.color === n.color));
   const priv = document.getElementById("insp-private");
   priv.classList.toggle("active", n.private);
-  priv.textContent = n.private ? "🔓 Quitar privacidad" : "🔒 Marcar como privada";
+  priv.textContent = n.private ? "🙈 Quitar privacidad" : "👁️ Marcar como privada";
   // Botón de grupo
   const grpBtn = document.getElementById("insp-group");
   if (grpBtn) {
@@ -584,7 +588,7 @@ inspPrivate.addEventListener("click", () => {
   if (!editingNote) return;
   editingNote.private = !editingNote.private;
   inspPrivate.classList.toggle("active", editingNote.private);
-  inspPrivate.textContent = editingNote.private ? "🔓 Quitar privacidad" : "🔒 Marcar como privada";
+  inspPrivate.textContent = editingNote.private ? "🙈 Quitar privacidad" : "👁️ Marcar como privada";
   renderAll(); applyFilter(); applyPrivacy(); applyToolMode(); saveNote(editingNote);
 });
 
@@ -600,10 +604,12 @@ function applyFilter() {
   });
 }
 function applyPrivacy() {
+  // Las notas privadas están difuminadas POR DEFECTO (no se lee su contenido).
+  // El toggle de ojo las revela (privacyOn=true) u oculta (false).
   el.world.querySelectorAll(".note").forEach(d => {
     const n = state.notes.find(x => x.id === Number(d.dataset.id));
     if (!n) return;
-    d.classList.toggle("blurred", state.privacyOn && n.private);
+    d.classList.toggle("blurred", n.private && !state.privacyOn);
   });
 }
 
@@ -633,6 +639,18 @@ document.getElementById("new-note-btn").addEventListener("click", () => {
   if (!state.currentBoardId) return;
   const c = viewCenter();
   createNote(c.x, c.y);
+});
+// Botón "crear nota privada": toggle con icono de ojo.
+const privCreateBtn = document.getElementById("private-create-btn");
+function updatePrivCreateBtn() {
+  privCreateBtn.classList.toggle("active", state.createPrivate);
+  privCreateBtn.title = state.createPrivate
+    ? "Modo privado activo: las notas nuevas serán privadas (difuminadas)"
+    : "Crear nota privada (difuminada)";
+}
+privCreateBtn.addEventListener("click", () => {
+  state.createPrivate = !state.createPrivate;
+  updatePrivCreateBtn();
 });
 document.getElementById("postit-btn").addEventListener("click", () => setNoteStyle("postit"));
 document.getElementById("pin-btn").addEventListener("click", () => setNoteStyle("pin"));
@@ -816,8 +834,16 @@ bmEl.save.addEventListener("click", async () => {
 // ============================ EXTRAS UI ============================
 function addPrivacyToggle() {
   const t = document.createElement("button");
-  t.className = "privacy-toggle"; t.innerHTML = "🔒"; t.title = "Difuminar notas privadas";
-  t.addEventListener("click", () => { state.privacyOn = !state.privacyOn; t.classList.toggle("on", state.privacyOn); applyPrivacy(); });
+  t.className = "privacy-toggle";
+  // Por defecto el contenido privado está oculto (difuminado): icono 🙈.
+  t.innerHTML = "🙈"; t.title = "Revelar contenido de notas privadas";
+  t.addEventListener("click", () => {
+    state.privacyOn = !state.privacyOn;
+    t.classList.toggle("on", state.privacyOn);
+    t.innerHTML = state.privacyOn ? "👁️" : "🙈";
+    t.title = state.privacyOn ? "Ocultar contenido privado" : "Revelar contenido de notas privadas";
+    applyPrivacy();
+  });
   document.querySelector(".search-box").appendChild(t);
 }
 function initBookmarks() {
@@ -891,5 +917,6 @@ async function init() {
   loadLlmStatus();
   initBookmarks();
   addPrivacyToggle();
+  applyPrivacy();
 }
 init();
