@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pizarra · whiteboard infinito</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============ SIDEBAR: pestañas + contenido ============ -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h1>📌 Pizarra</h1>
+      <button id="new-board-btn" class="icon-btn" title="Nueva pizarra">＋</button>
+    </div>
+    <nav id="tabs">
+      <button id="tab-boards" class="tab active">🗒️ Pizarras</button>
+      <button id="tab-bookmarks" class="tab">🔖 Bookmarks</button>
+    </nav>
+    <div id="board-list" class="board-list"></div>
+    <div id="bm-collections" class="board-list hidden">
+      <button id="new-collection-btn" class="collections-add">＋ Nueva colección</button>
+    </div>
+    <div class="sidebar-footer">
+      <button id="export-btn" class="ghost-btn" title="Exportar esta pizarra a Markdown">⬇ .md</button>
+      <span id="llm-dot" class="llm-dot" title="Inferencia">●</span>
+    </div>
+  </aside>
+
+  <!-- ============ WHITEBOARD ============ -->
+  <main id="board">
+    <!-- Canvas SVG para las rayas/conexiones entre notas (detrás de las notas) -->
+    <svg id="connections-layer"></svg>
+
+    <!-- Lienzo de mundo: aquí viven las notas. Se transforma con pan/zoom. -->
+    <div id="world"></div>
+
+    <!-- Controles flotantes -->
+    <div id="toolbar">
+      <button id="postit-btn" class="tool-btn active" title="Nota post-it">📝</button>
+      <button id="pin-btn" class="tool-btn" title="Nota con chincheta">📌</button>
+      <span class="tool-sep"></span>
+      <button id="connect-btn" class="tool-btn" title="Conectar notas (raya)">〰️</button>
+      <span class="tool-sep"></span>
+      <button id="zoom-in" class="tool-btn">＋</button>
+      <span id="zoom-label">100%</span>
+      <button id="zoom-out" class="tool-btn">－</button>
+      <button id="reset-view" class="tool-btn" title="Centrar vista">⌂</button>
+    </div>
+
+    <!-- Selector de color -->
+    <div id="color-picker" class="color-picker hidden">
+      <div class="swatch yellow active" data-color="yellow"></div>
+      <div class="swatch pink" data-color="pink"></div>
+      <div class="swatch green" data-color="green"></div>
+      <div class="swatch blue" data-color="blue"></div>
+      <div class="swatch purple" data-color="purple"></div>
+      <div class="swatch white" data-color="white"></div>
+    </div>
+
+    <!-- Aviso de modo conexión -->
+    <div id="connect-hint" class="connect-hint hidden">Selecciona dos notas para conectarlas · Esc para cancelar</div>
+  </main>
+
+  <!-- ============ BOOKMARKS VIEW (estilo Raindrop) ============ -->
+  <main id="bookmarks-view" class="hidden">
+    <div class="bm-topbar">
+      <h2 id="bm-collection-title">Todos los bookmarks</h2>
+      <div class="bm-search">
+        <input id="bm-search-input" type="text" placeholder="Buscar por título, descripción o etiqueta…" />
+      </div>
+      <button id="bm-add-btn" class="primary-btn">＋ Añadir link</button>
+    </div>
+    <div id="bm-grid" class="bm-grid"></div>
+    <div id="bm-empty" class="bm-empty hidden">No hay bookmarks aquí. Añade el primero con "＋ Añadir link".</div>
+  </main>
+
+  <!-- Diálogo para pedir confirmación/nombre -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <input id="modal-input" type="text" placeholder="Nombre de la pizarra" />
+      <div class="modal-actions">
+        <button id="modal-cancel" class="ghost-btn">Cancelar</button>
+        <button id="modal-ok" class="primary-btn">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diálogo para añadir bookmark -->
+  <div id="bm-modal" class="modal hidden">
+    <div class="modal-card wide">
+      <h3>Añadir link</h3>
+      <label>URL</label>
+      <input id="bm-url" type="url" placeholder="https://…" />
+      <div class="bm-fetch-row">
+        <button id="bm-fetch-btn" class="ghost-btn">✨ Descubrir metadatos</button>
+        <span id="bm-fetch-status" class="bm-fetch-status"></span>
+      </div>
+      <label>Título</label>
+      <input id="bm-title" type="text" placeholder="Título (se detecta automáticamente)" />
+      <label>Descripción</label>
+      <textarea id="bm-excerpt" rows="2" placeholder="Descripción"></textarea>
+      <label>Nota</label>
+      <textarea id="bm-note" rows="2" placeholder="Nota personal"></textarea>
+      <label>Etiquetas (separadas por comas)</label>
+      <input id="bm-tags" type="text" placeholder="tech, kpop, dev" />
+      <label>Colección</label>
+      <select id="bm-collection"></select>
+      <div class="modal-actions">
+        <button id="bm-cancel" class="ghost-btn">Cancelar</button>
+        <button id="bm-save" class="primary-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

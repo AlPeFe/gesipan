@@ -1,0 +1,37 @@
+[package]
+name = "pizarra"
+version = "0.1.0"
+edition = "2021"
+description = "Pizarra infinita: whiteboard de notas post-it y chinchetas, multi-pizarras, SQLite, export .md"
+license = "MIT"
+
+[dependencies]
+# Web framework
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["fs", "cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialización
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# SQLite (bundled compila SQLite en C -> sin dependencia del sistema, perfecto para un único .exe)
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Embed UI estática (HTML/CSS/JS) dentro del binario
+rust-embed = "8"
+
+# HTTP client opcional para inferencia OpenAI-compatible
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+# Utilidades
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+mime_guess = "2"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
