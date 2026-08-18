@@ -95,6 +95,8 @@ pub struct GroupPatch {
     height: Option<f64>,
     #[serde(default)]
     title: Option<String>,
+    #[serde(default)]
+    color: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -441,6 +443,9 @@ async fn update_group(
     }
     if let Some(v) = body.title {
         g.title = v;
+    }
+    if let Some(v) = body.color {
+        g.color = v;
     }
     with_db(&st, |conn| db::update_group(conn, &g))?;
     Ok(Json(g))

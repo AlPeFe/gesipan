@@ -63,6 +63,7 @@ pub struct Group {
     pub width: f64,
     pub height: f64,
     pub title: String,
+    pub color: String,
 }
 
 /// Gesipan (lienzo infinito).
@@ -132,7 +133,8 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             y        REAL NOT NULL DEFAULT 0,
             width    REAL NOT NULL DEFAULT 300,
             height   REAL NOT NULL DEFAULT 240,
-            title    TEXT NOT NULL DEFAULT ''
+            title    TEXT NOT NULL DEFAULT '',
+            color    TEXT NOT NULL DEFAULT 'lavender'
         );
 
         -- Pestaña Bookmarks (estilo Raindrop)
@@ -213,6 +215,13 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
         .collect::<Result<_, _>>()?;
     if !bm_cols.iter().any(|c| c == "deleted") {
         conn.execute_batch("ALTER TABLE bookmarks ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;")?;
+    }
+    let g_cols: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('groups')")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<Result<_, _>>()?;
+    if !g_cols.iter().any(|c| c == "color") {
+        conn.execute_batch("ALTER TABLE groups ADD COLUMN color TEXT NOT NULL DEFAULT 'lavender';")?;
     }
 
     Ok(())
@@ -482,12 +491,13 @@ fn row_to_group(r: &rusqlite::Row) -> rusqlite::Result<Group> {
         width: r.get(4)?,
         height: r.get(5)?,
         title: r.get(6)?,
+        color: r.get(7)?,
     })
 }
 
 pub fn list_groups(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Group>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, title FROM groups WHERE board_id = ?1 ORDER BY id",
+        "SELECT id, board_id, x, y, width, height, title, color FROM groups WHERE board_id = ?1 ORDER BY id",
     )?;
     let rows = stmt.query_map(params![board_id], row_to_group)?;
     Ok(rows.collect::<Result<_, _>>()?)
@@ -504,15 +514,15 @@ pub fn create_group(conn: &Connection, board_id: i64, x: f64, y: f64) -> anyhow:
 
 pub fn get_group(conn: &Connection, id: i64) -> anyhow::Result<Option<Group>> {
     let mut stmt =
-        conn.prepare("SELECT id, board_id, x, y, width, height, title FROM groups WHERE id = ?1")?;
+        conn.prepare("SELECT id, board_id, x, y, width, height, title, color FROM groups WHERE id = ?1")?;
     let mut rows = stmt.query_map(params![id], row_to_group)?;
     Ok(rows.next().transpose()?)
 }
 
 pub fn update_group(conn: &Connection, g: &Group) -> anyhow::Result<()> {
     conn.execute(
-        "UPDATE groups SET x=?1, y=?2, width=?3, height=?4, title=?5 WHERE id=?6",
-        params![g.x, g.y, g.width, g.height, g.title, g.id],
+        "UPDATE groups SET x=?1, y=?2, width=?3, height=?4, title=?5, color=?6 WHERE id=?7",
+        params![g.x, g.y, g.width, g.height, g.title, g.color, g.id],
     )?;
     Ok(())
 }

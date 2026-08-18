@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <link rel="stylesheet" href="style.9.css" />
+  <link rel="stylesheet" href="style.10.css" />
 </head>
 <body>
 
@@ -75,6 +75,28 @@
 
     <div id="connect-hint" class="connect-hint hidden">Arrastra de un ancla a otro ancla para unir · Esc cancela</div>
     <div id="tool-hint" class="tool-hint hidden">Clic en el lienzo para crear · Esc cancela</div>
+
+    <!-- Menú contextual del grupo (popup junto al grupo) -->
+    <div id="group-menu" class="hidden">
+      <div class="insp-head">
+        <div class="insp-title">Grupo</div>
+        <button id="group-menu-close" class="icon-btn small" aria-label="Cerrar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="insp-row">
+        <label for="group-menu-title">Título</label>
+        <input id="group-menu-title" type="text" placeholder="Nombre del grupo" />
+      </div>
+      <div class="insp-row">
+        <label>Color</label>
+        <div class="insp-colors group-colors">
+          <div class="swatch lavender active" data-color="lavender"></div>
+          <div class="swatch sage" data-color="sage"></div>
+          <div class="swatch blush" data-color="blush"></div>
+          <div class="swatch sky" data-color="sky"></div>
+          <div class="swatch sand" data-color="sand"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- Inspector contextual (popup junto a la nota seleccionada) -->
     <div id="inspector" class="hidden">
@@ -175,6 +197,6 @@
     </div>
   </div>
 
-  <script src="app.10.js"></script>
+  <script src="app.11.js"></script>
 </body>
 </html>
