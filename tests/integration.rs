@@ -5,9 +5,9 @@
 //!
 //! Ejecutar con: `cargo test`
 
-use pizarra::api;
-use pizarra::db;
-use pizarra::state::AppState;
+use gesipan::api;
+use gesipan::db;
+use gesipan::state::AppState;
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 
@@ -21,7 +21,7 @@ fn test_app() -> axum::Router {
     let conn = db::open(":memory:").expect("open in-memory db");
     let state = AppState {
         db: Arc::new(Mutex::new(conn)),
-        llm: pizarra::llm::LlmConfig {
+        llm: gesipan::llm::LlmConfig {
             api_key: String::new(), // deshabilitado
             base_url: "http://localhost/v1".into(),
             model: "test".into(),

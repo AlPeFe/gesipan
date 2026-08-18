@@ -1,11 +1,12 @@
-# 📌 Pizarra
+# 📌 Gesipan (게시판)
 
 ![logo](web/logo.png)
 
-**Pizarra** es un **whiteboard infinito** en tu navegador, con notas estilo
-**post-it** 📝 y **papel con chincheta** 📌, más una **pestaña de Bookmarks**
-estilo Raindrop 🔖. Está hecho en **Rust**, la interfaz está **embebida en un
-único ejecutable** y los datos viven en un fichero **SQLite** local.
+**Gesipan** (게시판 = "tablero de notas" en coreano) es un **whiteboard
+infinito** en tu navegador, con notas estilo **post-it** 📝 y **papel con
+chincheta** 📌, más una **pestaña de Bookmarks** estilo Raindrop 🔖. Está hecho
+en **Rust**, la interfaz está **embebida en un único ejecutable** y los datos
+viven en un fichero **SQLite** local.
 
 > Un ejecutable. Sin servidor externo. Sin Node. Sin dependencias del sistema.
 
@@ -50,19 +51,19 @@ Estética **Material 3** (estilo Jetpack Compose / Google): tipografía
 ### Opción A — Binario ya compilado
 
 ```bash
-pizarra
-# → Pizarra sirviendo en http://127.0.0.1:8733
+gesipan
+# → Gesipan sirviendo en http://127.0.0.1:8733
 ```
 
 Abre la URL en el navegador. La primera vez se crea una pizarra de ejemplo y la
-base de datos `pizarra.db`.
+base de datos `gesipan.db`.
 
 ### Opción B — Compilar desde el código
 
 ```bash
 cargo build --release
-# → target/release/pizarra.exe   (un único ejecutable)
-./target/release/pizarra
+# → target/release/gesipan.exe   (un único ejecutable)
+./target/release/gesipan
 ```
 
 La primera compilación tarda un poco (compila SQLite en C). Las siguientes son
@@ -71,14 +72,14 @@ rápidas.
 ### Exponerla en la red local (LAN)
 
 ```bash
-PIZARRA_HOST=0.0.0.0 pizarra
+GESIPAN_HOST=0.0.0.0 gesipan
 ```
 
 Abre el puerto `8733` (TCP) en el firewall de Windows. En un perfil de red
 *Private* o *Public*:
 
 ```powershell
-New-NetFirewallRule -DisplayName "Pizarra Local" -Direction Inbound -Protocol TCP -LocalPort 8733 -Action Allow -Profile Any
+New-NetFirewallRule -DisplayName "Gesipan Local" -Direction Inbound -Protocol TCP -LocalPort 8733 -Action Allow -Profile Any
 ```
 
 Después accede desde otros dispositivos con `http://<IP-del-equipo>:8733`.
@@ -88,9 +89,9 @@ Después accede desde otros dispositivos con `http://<IP-del-equipo>:8733`.
 Regístrala como tarea programada para que arranque sola al iniciar sesión:
 
 ```powershell
-$action = New-ScheduledTaskAction -Execute "C:\ruta\a\pizarra.exe"
+$action = New-ScheduledTaskAction -Execute "C:\ruta\a\gesipan.exe"
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-Register-ScheduledTask -TaskName "Pizarra" -Action $action -Trigger $trigger -Force
+Register-ScheduledTask -TaskName "Gesipan" -Action $action -Trigger $trigger -Force
 ```
 
 ---
@@ -99,9 +100,9 @@ Register-ScheduledTask -TaskName "Pizarra" -Action $action -Trigger $trigger -Fo
 
 | Variable          | Defecto                | Descripción                            |
 |-------------------|------------------------|----------------------------------------|
-| `PIZARRA_PORT`    | `8733`                 | Puerto HTTP                            |
-| `PIZARRA_HOST`    | `127.0.0.1`            | IP a la que escuchar (`0.0.0.0` = red) |
-| `PIZARRA_DATA`    | `pizarra.db`           | Ruta del fichero SQLite                |
+| `GESIPAN_PORT`    | `8733`                 | Puerto HTTP                            |
+| `GESIPAN_HOST`    | `127.0.0.1`            | IP a la que escuchar (`0.0.0.0` = red) |
+| `GESIPAN_DATA`    | `gesipan.db`           | Ruta del fichero SQLite                |
 | `OPENAI_API_KEY`  | *(vacío → off)*        | Activa inferencia                      |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL de la API compatible     |
 | `OPENAI_MODEL`    | `gpt-4o-mini`          | Modelo a usar                          |
@@ -110,10 +111,10 @@ Register-ScheduledTask -TaskName "Pizarra" -Action $action -Trigger $trigger -Fo
 
 ```bash
 # OpenAI
-OPENAI_API_KEY=sk-... pizarra
+OPENAI_API_KEY=sk-... gesipan
 
 # Ollama local
-OPENAI_API_KEY=ollama OPENAI_BASE_URL=http://localhost:11434/v1 OPENAI_MODEL=llama3 pizarra
+OPENAI_API_KEY=ollama OPENAI_BASE_URL=http://localhost:11434/v1 OPENAI_MODEL=llama3 gesipan
 ```
 
 Comprueba el estado con `curl http://127.0.0.1:8733/api/llm/status`.

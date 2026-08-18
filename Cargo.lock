@@ -311,6 +311,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "gesipan"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "mime_guess",
+ "reqwest",
+ "rusqlite",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -782,27 +803,6 @@ name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
-
-[[package]]
-name = "pizarra"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "chrono",
- "mime_guess",
- "reqwest",
- "rusqlite",
- "rust-embed",
- "serde",
- "serde_json",
- "tokio",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
 
 [[package]]
 name = "pkg-config"

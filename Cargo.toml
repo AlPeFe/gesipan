@@ -1,8 +1,8 @@
 [package]
-name = "pizarra"
+name = "gesipan"
 version = "0.1.0"
 edition = "2021"
-description = "Pizarra infinita: whiteboard de notas post-it y chinchetas, multi-pizarras, SQLite, export .md"
+description = "Gesipan (게시판) — whiteboard infinito de notas + bookmarks estilo Raindrop"
 license = "MIT"
 
 [dependencies]

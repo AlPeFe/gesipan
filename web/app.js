@@ -1,8 +1,8 @@
 /* =========================================================================
-   Pizarra — whiteboard infinito (Material 3) + bookmarks (estilo Raindrop)
+   Gesipan — whiteboard infinito (Material 3) + bookmarks (estilo Raindrop)
    Vanilla JS, sin dependencias.
 
-   Modelo de "pizarra infinita":
+   Modelo de "gesipan infinita":
    - El "mundo" (#world) contiene notas y grupos.
    - La cámara { x, y, zoom } se aplica con transform CSS translate+scale.
    - Las notas se guardan en coordenadas DE MUNDO (ya escaladas). Al arrastrar
@@ -108,7 +108,7 @@ function viewCenter() {
 }
 
 // ---------------------------------------------------------------------------
-// Carga de pizarras
+// Carga de gesipans
 // ---------------------------------------------------------------------------
 async function loadBoards() {
   state.boards = await api("/api/boards");
@@ -126,10 +126,10 @@ function renderBoardList() {
     const del = document.createElement("button");
     del.className = "del";
     del.textContent = "✕";
-    del.title = "Borrar pizarra";
+    del.title = "Borrar gesipan";
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!confirm(`¿Borrar la pizarra "${b.name}" y todas sus notas?`)) return;
+      if (!confirm(`¿Borrar la gesipan "${b.name}" y todas sus notas?`)) return;
       await api(`/api/boards/${b.id}`, "DELETE");
       await loadBoards();
     });
@@ -755,7 +755,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Pizarras: crear / renombrar / exportar
+// Gesipans: crear / renombrar / exportar
 // ---------------------------------------------------------------------------
 function openModal(placeholder, onSubmit) {
   el.modal.classList.remove("hidden");
@@ -778,7 +778,7 @@ function openModal(placeholder, onSubmit) {
 }
 
 document.getElementById("new-board-btn").addEventListener("click", () => {
-  openModal("Nombre de la nueva pizarra", async (name) => {
+  openModal("Nombre de la nueva gesipan", async (name) => {
     const b = await api("/api/boards", "POST", { name });
     state.boards.push(b);
     await loadBoard(b.id);
@@ -789,7 +789,7 @@ el.boardList.addEventListener("dblclick", (e) => {
   const item = e.target.closest(".board-item");
   if (!item || e.target.classList.contains("del")) return;
   const board = state.boards.find((b) => el.boardList.querySelectorAll(".board-item")[state.boards.indexOf(b)] === item);
-  openModal("Renombrar pizarra", async (name) => {
+  openModal("Renombrar gesipan", async (name) => {
     await api(`/api/boards/${board.id}`, "PATCH", { name });
     board.name = name;
     renderBoardList();

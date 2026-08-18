@@ -1,4 +1,4 @@
-//! # Pizarra — librería
+//! # Gesipan — librería
 //!
 //! Expone los módulos internos para que los tests de integración (y cualquier
 //! consumidor del crate) puedan usarlos. El binario (`main.rs`) también depende

@@ -22,7 +22,7 @@ pub struct PageMeta {
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (compatible; Pizarra/0.1 bookmark-fetcher)")
+        .user_agent("Mozilla/5.0 (compatible; Gesipan/0.1 bookmark-fetcher)")
         .build()
         .unwrap_or_default()
 }

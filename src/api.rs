@@ -4,11 +4,11 @@
 //!
 //! | Método | Ruta                          | Descripción                          |
 //! |--------|-------------------------------|--------------------------------------|
-//! | GET    | `/api/boards`                 | Lista pizarras                       |
-//! | POST   | `/api/boards`                 | Crea pizarra `{name}`                |
+//! | GET    | `/api/boards`                 | Lista gesipans                       |
+//! | POST   | `/api/boards`                 | Crea gesipan `{name}`                |
 //! | PATCH  | `/api/boards/{id}`            | Renombra `{name}`                    |
-//! | DELETE | `/api/boards/{id}`            | Borra pizarra (+ notas y conexiones) |
-//! | GET    | `/api/boards/{id}/data`       | Pizarra + notas + conexiones         |
+//! | DELETE | `/api/boards/{id}`            | Borra gesipan (+ notas y conexiones) |
+//! | GET    | `/api/boards/{id}/data`       | Gesipan + notas + conexiones         |
 //! | GET    | `/api/boards/{id}/export.md`  | Exporta a Markdown (agentes)         |
 //! | POST   | `/api/boards/{id}/notes`      | Crea nota                            |
 //! | PATCH  | `/api/notes/{id}`             | Actualiza nota                       |
@@ -138,7 +138,7 @@ pub struct BookmarkFetchIn {
     url: String,
 }
 
-/// Datos completos de una pizarra (board + notas + conexiones + grupos).
+/// Datos completos de una gesipan (board + notas + conexiones + grupos).
 #[derive(serde::Serialize)]
 struct BoardData {
     board: db::Board,
@@ -296,7 +296,7 @@ async fn export_md(
         .ok()
         .flatten()
         .map(|b| b.name)
-        .unwrap_or_else(|| "pizarra".into());
+        .unwrap_or_else(|| "gesipan".into());
     let filename = format!("{}.md", name.replace([' ', '/', '\\'], "_"));
     headers.insert(
         axum::http::header::CONTENT_TYPE,

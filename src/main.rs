@@ -1,4 +1,4 @@
-//! # Pizarra — whiteboard infinito de notas
+//! # Gesipan — whiteboard infinito de notas
 //!
 //! Servidor local que sirve una UI web (embebida en el binario) + API REST,
 //! con persistencia en SQLite. Todo en un único ejecutable.
@@ -6,19 +6,19 @@
 //! ## Uso
 //!
 //! ```bash
-//! pizarra                  # sirve en http://127.0.0.1:8733
-//! PIZARRA_PORT=9000 pizarra
-//! PIZARRA_DATA=./datos.db pizarra   # cambiar la ubicación de la BD
-//! OPENAI_API_KEY=sk-... pizarra     # activar inferencia (opcional)
+//! gesipan                  # sirve en http://127.0.0.1:8733
+//! GESIPAN_PORT=9000 gesipan
+//! GESIPAN_DATA=./datos.db gesipan   # cambiar la ubicación de la BD
+//! OPENAI_API_KEY=sk-... gesipan     # activar inferencia (opcional)
 //! ```
 //!
 //! ## Variables de entorno
 //!
 //! | Variable          | Defecto               | Descripción                        |
 //! |-------------------|-----------------------|------------------------------------|
-//! | `PIZARRA_PORT`    | `8733`                | Puerto HTTP                        |
-//! | `PIZARRA_HOST`    | `127.0.0.1`           | IP a la que escuchar               |
-//! | `PIZARRA_DATA`    | `pizarra.db`          | Ruta del fichero SQLite            |
+//! | `GESIPAN_PORT`    | `8733`                | Puerto HTTP                        |
+//! | `GESIPAN_HOST`    | `127.0.0.1`           | IP a la que escuchar               |
+//! | `GESIPAN_DATA`    | `gesipan.db`          | Ruta del fichero SQLite            |
 //! | `OPENAI_API_KEY`  | *(vacío → off)*       | Activa inferencia                  |
 //! | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL de la API           |
 //! | `OPENAI_MODEL`    | `gpt-4o-mini`         | Modelo                             |
@@ -31,7 +31,7 @@
 //! - `state.rs`— estado compartido
 //! - `web/`    — frontend (HTML/CSS/JS), embebido con rust-embed
 
-use pizarra::{api, db, llm, state};
+use gesipan::{api, db, llm, state};
 
 use axum::response::IntoResponse;
 use axum::Router;
@@ -79,27 +79,27 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info,pizarra=info")),
+                .unwrap_or_else(|_| EnvFilter::new("info,gesipan=info")),
         )
         .init();
 
     // Configuración desde entorno.
-    let port: u16 = std::env::var("PIZARRA_PORT")
+    let port: u16 = std::env::var("GESIPAN_PORT")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(8733);
-    let host = std::env::var("PIZARRA_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let data = std::env::var("PIZARRA_DATA").unwrap_or_else(|_| "pizarra.db".to_string());
+    let host = std::env::var("GESIPAN_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let data = std::env::var("GESIPAN_DATA").unwrap_or_else(|_| "gesipan.db".to_string());
 
     // Abre (o crea) la BD y aplica el esquema.
     let conn = db::open(&data)?;
     let db = std::sync::Arc::new(std::sync::Mutex::new(conn));
 
-    // Asegura que existe al menos una pizarra para empezar.
+    // Asegura que existe al menos una gesipan para empezar.
     {
         let conn = db.lock().unwrap();
         if db::list_boards(&conn)?.is_empty() {
-            db::create_board(&conn, "Mi pizarra")?;
+            db::create_board(&conn, "Mi gesipan")?;
         }
     }
 
@@ -128,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
 
     let addr: SocketAddr = format!("{host}:{port}").parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    tracing::info!("Pizarra sirviendo en http://{addr}");
+    tracing::info!("Gesipan sirviendo en http://{addr}");
     tracing::info!("BD en {data}");
 
     axum::serve(listener, app).await?;

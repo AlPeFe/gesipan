@@ -6,8 +6,8 @@
 //!
 //! ## Esquema
 //!
-//! - **boards**: pizarras. Cada una es un lienzo infinito independiente.
-//! - **notes**: notas dentro de una pizarra. Cada nota tiene posición `(x, y)`
+//! - **boards**: gesipans. Cada una es un lienzo infinito independiente.
+//! - **notes**: notas dentro de una gesipan. Cada nota tiene posición `(x, y)`
 //!   en el lienzo, tamaño, texto, un `style` (`postit` | `pin`) y un color.
 //! - **connections**: "rayas" que unen dos notas (grafo del whiteboard).
 //!
@@ -60,7 +60,7 @@ pub struct Group {
     pub title: String,
 }
 
-/// Pizarra (lienzo infinito).
+/// Gesipan (lienzo infinito).
 #[derive(Debug, Clone, Serialize)]
 pub struct Board {
     pub id: i64,
@@ -211,7 +211,7 @@ pub fn rename_board(conn: &Connection, id: i64, name: &str) -> anyhow::Result<()
 }
 
 pub fn delete_board(conn: &Connection, id: i64) -> anyhow::Result<()> {
-    // ON DELETE CASCADE borra notas y conexiones de la pizarra automáticamente.
+    // ON DELETE CASCADE borra notas y conexiones de la gesipan automáticamente.
     conn.execute("DELETE FROM boards WHERE id = ?1", params![id])?;
     Ok(())
 }
@@ -434,7 +434,7 @@ pub fn delete_group(conn: &Connection, id: i64) -> anyhow::Result<()> {
 // Export a Markdown
 // ---------------------------------------------------------------------------
 
-/// Exporta una pizarra completa a texto Markdown, pensado para que un agente
+/// Exporta una gesipan completa a texto Markdown, pensado para que un agente
 /// (o humano) pueda leer la estructura. Incluye el texto de cada nota y las
 /// conexiones como vínculos.
 pub fn export_board_markdown(conn: &Connection, board_id: i64) -> anyhow::Result<String> {
@@ -477,7 +477,7 @@ pub fn export_board_markdown(conn: &Connection, board_id: i64) -> anyhow::Result
     }
 
     if notes.is_empty() {
-        md.push_str("*(pizarra vacía)*\n");
+        md.push_str("*(gesipan vacía)*\n");
         return Ok(md);
     }
 

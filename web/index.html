@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pizarra · whiteboard infinito</title>
+  <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -12,11 +12,11 @@
   <!-- ============ SIDEBAR ============ -->
   <aside id="sidebar">
     <div class="sidebar-header">
-      <h1>Pizarra</h1>
-      <button id="new-board-btn" class="icon-btn" title="Nueva pizarra">＋</button>
+      <h1>Gesipan</h1>
+      <button id="new-board-btn" class="icon-btn" title="Nueva gesipan">＋</button>
     </div>
     <nav id="tabs">
-      <button id="tab-boards" class="tab active">Pizarras</button>
+      <button id="tab-boards" class="tab active">Gesipans</button>
       <button id="tab-bookmarks" class="tab">Bookmarks</button>
     </nav>
     <div id="board-list" class="board-list"></div>
@@ -24,7 +24,7 @@
       <button id="new-collection-btn" class="collections-add">＋ Nueva colección</button>
     </div>
     <div class="sidebar-footer">
-      <button id="export-btn" class="ghost-btn" title="Exportar esta pizarra a Markdown">⬇ .md</button>
+      <button id="export-btn" class="ghost-btn" title="Exportar esta gesipan a Markdown">⬇ .md</button>
       <span id="llm-dot" class="llm-dot" title="Inferencia">●</span>
     </div>
   </aside>
@@ -122,7 +122,7 @@
   <!-- Diálogo para pedir confirmación/nombre -->
   <div id="modal" class="modal hidden">
     <div class="modal-card">
-      <input id="modal-input" type="text" placeholder="Nombre de la pizarra" />
+      <input id="modal-input" type="text" placeholder="Nombre de la gesipan" />
       <div class="modal-actions">
         <button id="modal-cancel" class="ghost-btn">Cancelar</button>
         <button id="modal-ok" class="primary-btn">Aceptar</button>
