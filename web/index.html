@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <link rel="stylesheet" href="style.3.css" />
+  <link rel="stylesheet" href="style.4.css" />
 </head>
 <body>
 
@@ -13,10 +13,10 @@
   <aside id="sidebar">
     <div class="sidebar-header">
       <h1>Gesipan</h1>
-      <button id="new-board-btn" class="icon-btn" title="Nueva gesipan">＋</button>
+      <button id="new-board-btn" class="icon-btn" title="Nueva pizarra">＋</button>
     </div>
     <nav id="tabs">
-      <button id="tab-boards" class="tab active">Gesipans</button>
+      <button id="tab-boards" class="tab active">Pizarras</button>
       <button id="tab-bookmarks" class="tab">Bookmarks</button>
     </nav>
     <div id="board-list" class="board-list"></div>
@@ -24,7 +24,7 @@
       <button id="new-collection-btn" class="collections-add">＋ Nueva colección</button>
     </div>
     <div class="sidebar-footer">
-      <button id="export-btn" class="ghost-btn" title="Exportar esta gesipan a Markdown">⬇ .md</button>
+      <button id="export-btn" class="ghost-btn" title="Exportar esta pizarra a Markdown">⬇ .md</button>
       <span id="llm-dot" class="llm-dot" title="Inferencia">●</span>
     </div>
   </aside>
@@ -38,30 +38,29 @@
     <div id="topbar">
       <div id="search-box" class="search-box">
         <span class="search-icon">⌕</span>
-        <input id="note-search" type="text" placeholder="Buscar notas por texto o etiqueta…" />
+        <input id="note-search" type="text" placeholder="Buscar notas…" />
         <button id="search-clear" class="search-clear hidden">✕</button>
       </div>
       <button id="dark-toggle" class="icon-btn" title="Modo oscuro">🌙</button>
-      <button id="view-toggle" class="icon-btn" title="Vista lista / tarjetas">☰</button>
+      <button id="view-toggle" class="icon-btn" title="Vista lista / tablero">☰</button>
       <button id="trash-btn" class="icon-btn" title="Papelera">🗑️</button>
     </div>
 
-    <!-- Barra de herramientas flotante -->
+    <!-- Barra de herramientas (minimal, estilo apps de notas) -->
     <div id="toolbar">
-      <button id="new-note-btn" class="tool-btn new-note" title="Crear nueva nota">＋</button>
-      <button id="postit-btn" class="tool-btn active" title="Nuevas notas como post-it">📝</button>
-      <button id="pin-btn" class="tool-btn" title="Nuevas notas como chincheta">📌</button>
+      <button id="new-note-btn" class="tool-btn new-note" title="Nueva nota">＋</button>
       <span class="tool-sep"></span>
-      <button id="group-btn" class="tool-btn" title="Grupo: recuadro que agrupa notas (toggle)">▣</button>
-      <button id="connect-btn" class="tool-btn" title="Unir notas (toggle): clic en dos puntos de anclaje">⤳</button>
+      <button id="postit-btn" class="tool-btn active" title="Nota post-it">📝</button>
+      <button id="pin-btn" class="tool-btn" title="Nota con chincheta">📌</button>
+      <button id="group-btn" class="tool-btn" title="Grupo">▣</button>
+      <button id="connect-btn" class="tool-btn" title="Unir notas">⤳</button>
       <span class="tool-sep"></span>
-      <button id="zoom-in" class="tool-btn">＋</button>
-      <span id="zoom-label">100%</span>
       <button id="zoom-out" class="tool-btn">－</button>
-      <button id="reset-view" class="tool-btn" title="Centrar vista">⌂</button>
+      <span id="zoom-label">100%</span>
+      <button id="zoom-in" class="tool-btn">＋</button>
+      <button id="reset-view" class="tool-btn" title="Centrar">⌂</button>
     </div>
 
-    <!-- Selector de color -->
     <div id="color-picker" class="color-picker hidden">
       <div class="swatch yellow active" data-color="yellow"></div>
       <div class="swatch pink" data-color="pink"></div>
@@ -71,14 +70,11 @@
       <div class="swatch white" data-color="white"></div>
     </div>
 
-    <!-- Aviso de modo conexión -->
-    <div id="connect-hint" class="connect-hint hidden">Modo unir: clic en un punto de anclaje de la 1ª nota y luego en el de la 2ª · Esc cancela</div>
-
-    <!-- Sugerencia al activar herramienta de grupo -->
-    <div id="tool-hint" class="tool-hint hidden">Modo grupo: clic en el lienzo para crear un grupo · Esc cancela</div>
+    <div id="connect-hint" class="connect-hint hidden">Clic en un ancla de la 1ª nota y luego de la 2ª · Esc cancela</div>
+    <div id="tool-hint" class="tool-hint hidden">Clic en el lienzo para crear un grupo · Esc cancela</div>
   </main>
 
-  <!-- ============ PANEL INSPECTOR (metadata de la nota seleccionada) ============ -->
+  <!-- ============ PANEL INSPECTOR ============ -->
   <aside id="inspector" class="hidden">
     <div class="inspector-head">
       <h3>Nota</h3>
@@ -87,7 +83,7 @@
     <label>Texto</label>
     <textarea id="insp-text" rows="5" placeholder="Escribe tu nota…"></textarea>
     <label>Etiquetas (separadas por comas)</label>
-    <input id="insp-tags" type="text" placeholder="ideas, urgente, kpop…" />
+    <input id="insp-tags" type="text" placeholder="ideas, urgente…" />
     <label>Estilo</label>
     <div class="insp-styles">
       <button id="insp-style-postit" class="style-btn active">📝 Post-it</button>
@@ -110,25 +106,25 @@
     </div>
   </aside>
 
-  <!-- ============ BOOKMARKS VIEW ============ -->
+  <!-- ============ BOOKMARKS VIEW (estilo Raindrop) ============ -->
   <main id="bookmarks-view" class="hidden">
-  <div class="bm-topbar">
-    <h2 id="bm-collection-title">Todos los bookmarks</h2>
-    <div class="bm-search">
-      <input id="bm-search-input" type="text" placeholder="Buscar por título, descripción o etiqueta…" />
+    <div class="bm-topbar">
+      <h2 id="bm-collection-title">Todos los bookmarks</h2>
+      <div class="bm-search">
+        <input id="bm-search-input" type="text" placeholder="Buscar…" />
+      </div>
+      <button id="bm-sort-btn" class="ghost-btn" title="Ordenar">⇅ Fecha</button>
+      <button id="bm-export-btn" class="ghost-btn" title="Exportar a Markdown">⬇ .md</button>
+      <button id="bm-add-btn" class="primary-btn">＋ Añadir link</button>
     </div>
-    <button id="bm-sort-btn" class="ghost-btn" title="Ordenar">⇅ Fecha</button>
-    <button id="bm-export-btn" class="ghost-btn" title="Exportar bookmarks a Markdown">⬇ .md</button>
-    <button id="bm-add-btn" class="primary-btn">＋ Añadir link</button>
-  </div>
-  <div id="bm-grid" class="bm-grid"></div>
-  <div id="bm-empty" class="bm-empty hidden">No hay bookmarks aquí. Añade el primero con "＋ Añadir link".</div>
+    <div id="bm-grid" class="bm-grid"></div>
+    <div id="bm-empty" class="bm-empty hidden">No hay bookmarks aquí. Añade el primero con "＋ Añadir link".</div>
   </main>
 
   <!-- Diálogo para pedir confirmación/nombre -->
   <div id="modal" class="modal hidden">
     <div class="modal-card">
-      <input id="modal-input" type="text" placeholder="Nombre de la gesipan" />
+      <input id="modal-input" type="text" placeholder="Nombre de la pizarra" />
       <div class="modal-actions">
         <button id="modal-cancel" class="ghost-btn">Cancelar</button>
         <button id="modal-ok" class="primary-btn">Aceptar</button>
@@ -163,7 +159,7 @@
     </div>
   </div>
 
-  <!-- Papelera de reciclaje -->
+  <!-- Papelera -->
   <div id="trash-modal" class="modal hidden">
     <div class="modal-card trash-card">
       <div class="inspector-head">
@@ -176,6 +172,6 @@
     </div>
   </div>
 
-  <script src="app.3.js"></script>
+  <script src="app.4.js"></script>
 </body>
 </html>
