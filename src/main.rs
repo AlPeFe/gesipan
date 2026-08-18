@@ -31,7 +31,7 @@
 //! - `state.rs`— estado compartido
 //! - `web/`    — frontend (HTML/CSS/JS), embebido con rust-embed
 
-use gesipan::{api, db, llm, state};
+use gesipan::{api, backup, db, llm, state};
 
 use axum::response::IntoResponse;
 use axum::Router;
@@ -117,6 +117,38 @@ async fn main() -> anyhow::Result<()> {
     } else {
         tracing::info!("Inferencia desactivada (define OPENAI_API_KEY para activarla)");
     }
+
+    // Backup automático: hace una copia al arrancar y luego cada `every_secs`.
+    // Corre en una tarea de fondo para no bloquear el servidor.
+    let backup_cfg = backup::BackupConfig::from_env();
+    {
+        // Backup inicial en el arranque (mejor que esperar a la primera cadencia).
+        let conn = db.lock().unwrap();
+        match backup::run_backup(&conn, &backup_cfg) {
+            Ok(dest) => tracing::info!("Backup inicial en {}", dest.display()),
+            Err(e) => tracing::warn!("Backup inicial fallido: {e}"),
+        }
+    }
+    let bcfg = backup_cfg.clone();
+    let bdb = db.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(bcfg.every_secs));
+        interval.tick().await; // descarta el primer tick inmediato
+        loop {
+            interval.tick().await;
+            let conn = bdb.lock().expect("db lock poisoned");
+            match backup::run_backup(&conn, &bcfg) {
+                Ok(dest) => tracing::info!("Backup realizado en {}", dest.display()),
+                Err(e) => tracing::warn!("Backup fallido: {e}"),
+            }
+        }
+    });
+    tracing::info!(
+        "Backups cada {}s en {} (guardando hasta {} copias)",
+        backup_cfg.every_secs,
+        backup_cfg.dir.display(),
+        backup_cfg.keep
+    );
 
     // API + UI. CORS habilitado por si alguien abre la UI desde otro origen.
     let app = Router::new()

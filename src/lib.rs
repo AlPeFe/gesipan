@@ -5,6 +5,7 @@
 //! de esta librería.
 
 pub mod api;
+pub mod backup;
 pub mod db;
 pub mod llm;
 pub mod meta;

@@ -18,7 +18,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # SQLite (bundled compila SQLite en C -> sin dependencia del sistema, perfecto para un único .exe)
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
 
 # Embed UI estática (HTML/CSS/JS) dentro del binario
 rust-embed = "8"

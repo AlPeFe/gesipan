@@ -1,0 +1,32 @@
+# Gesipan (게시판) — docker-compose
+# Uso:
+#   docker compose up -d --build
+# Abre http://localhost:8733 (o la IP del host en la LAN).
+#
+# Los datos (BD + backups) se guardan en el volumen `gesipan-data`,
+# así que sobreviven a `docker compose down` y a recrear el contenedor.
+
+services:
+  gesipan:
+    build: .
+    container_name: gesipan
+    restart: unless-stopped
+    ports:
+      - "8733:8733"
+    volumes:
+      - gesipan-data:/data
+    environment:
+      # Para exponerla fuera del host, el contenedor ya escucha en 0.0.0.0.
+      GESIPAN_HOST: 0.0.0.0
+      GESIPAN_PORT: 8733
+      GESIPAN_DATA: /data/gesipan.db
+      GESIPAN_BACKUP_DIR: /data/backups
+      GESIPAN_BACKUP_EVERY: 3600   # backup cada hora
+      GESIPAN_BACKUP_KEEP: 24      # conservar 24 copias
+      # Inferencia opcional (descomenta para activar):
+      # OPENAI_API_KEY: sk-...
+      # OPENAI_BASE_URL: https://api.openai.com/v1
+      # OPENAI_MODEL: gpt-4o-mini
+
+volumes:
+  gesipan-data:

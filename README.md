@@ -94,6 +94,54 @@ $trigger = New-ScheduledTaskTrigger -AtLogOn
 Register-ScheduledTask -TaskName "Gesipan" -Action $action -Trigger $trigger -Force
 ```
 
+### Con Docker (contenedor)
+
+Gesipan está **dockerizada**. La imagen final es mínima (solo el binario, sin
+Rust), y la BD + los backups se guardan en un volumen persistente.
+
+```bash
+# Construir y arrancar
+docker compose up -d --build
+
+# Abrir http://localhost:8733   (o la IP del host desde la LAN)
+```
+
+Los datos viven en el volumen `gesipan-data` (`/data` dentro del contenedor), por
+lo que **sobreviven** a `docker compose down` y a recrear el contenedor.
+
+Para personalizar (puerto, inferencia, cadencia de backup) edita
+`docker-compose.yml`.
+
+---
+
+## 💾 Backup automático de la base de datos
+
+Gesipan hace **backup de la BD SQLite automáticamente**: una copia al arrancar
+y luego cada cierto intervalo, sin detener el servicio. Usa la *online backup
+API* de SQLite, que produce una copia **consistente** incluso con WAL activo.
+
+| Variable               | Defecto        | Descripción                           |
+|------------------------|----------------|---------------------------------------|
+| `GESIPAN_BACKUP_DIR`   | `backups/`     | Carpeta donde se guardan los backups  |
+| `GESIPAN_BACKUP_EVERY` | `3600`         | Segundos entre backups (por defecto 1h) |
+| `GESIPAN_BACKUP_KEEP`  | `24`           | Nº máximo de backups que se conservan |
+
+Los ficheros se llaman `gesipan-YYYYMMDD-HHMMSS.db`. Cuando se supera `KEEP`,
+se borran los más antiguos (rotación automática).
+
+### Dónde está la BD
+- **Local**: por defecto `gesipan.db` en el directorio de trabajo, o donde digas
+  con `GESIPAN_DATA`.
+- **Docker**: `/data/gesipan.db`, con los backups en `/data/backups` (volumen
+  `gesipan-data`).
+
+### Restaurar un backup
+Detén la app y sustituye la BD por una copia de `backups/`:
+
+```bash
+cp backups/gesipan-20260818-120000.db gesipan.db
+```
+
 ---
 
 ## ⚙️ Configuración (variables de entorno)
@@ -103,6 +151,9 @@ Register-ScheduledTask -TaskName "Gesipan" -Action $action -Trigger $trigger -Fo
 | `GESIPAN_PORT`    | `8733`                 | Puerto HTTP                            |
 | `GESIPAN_HOST`    | `127.0.0.1`            | IP a la que escuchar (`0.0.0.0` = red) |
 | `GESIPAN_DATA`    | `gesipan.db`           | Ruta del fichero SQLite                |
+| `GESIPAN_BACKUP_DIR` | `backups/`          | Carpeta de backups                     |
+| `GESIPAN_BACKUP_EVERY` | `3600`            | Segundos entre backups (1h)            |
+| `GESIPAN_BACKUP_KEEP` | `24`               | Copias de backup que se conservan      |
 | `OPENAI_API_KEY`  | *(vacío → off)*        | Activa inferencia                      |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL de la API compatible     |
 | `OPENAI_MODEL`    | `gpt-4o-mini`          | Modelo a usar                          |
@@ -144,13 +195,15 @@ Comprueba el estado con `curl http://127.0.0.1:8733/api/llm/status`.
 
 ```
 src/
-├── main.rs    Servidor axum + sirve la UI embebida (rust-embed) + configuración
+├── main.rs    Servidor axum + sirve la UI embebida (rust-embed) + configuración + backup
 ├── api.rs     Rutas REST (boards, notes, connections, groups, bookmarks, export, LLM)
 ├── db.rs      Capa SQLite (esquema + CRUD + migraciones + export a Markdown)
+├── backup.rs  Backup automático de la BD (online backup API + rotación)
 ├── llm.rs     Inferencia opcional (OpenAI-compatible, off por defecto)
 ├── meta.rs    Captura automática de metadatos de URLs (para bookmarks)
 └── state.rs   Estado compartido (conexión DB + config LLM)
 web/           Frontend vanilla JS (HTML/CSS/JS) + fuentes + logo, embebido en el binario
+Dockerfile / docker-compose.yml   Despliegue en contenedor
 ```
 
 ### Stack
