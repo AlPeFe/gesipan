@@ -40,6 +40,18 @@ viven en un fichero **SQLite** local.
 Desactivada por defecto. Actívala con una variable de entorno y usa cualquier
 API compatible (OpenAI, Ollama, vLLM…).
 
+### Organización automática con IA (MCP)
+Gesipan expone un **servidor MCP** en `/mcp` para que agentes de IA (Hermes,
+Claude, Cursor…) organicen las notas y bookmarks automáticamente: crear notas,
+listar, clasificar bookmarks en colecciones y asignar etiquetas.
+
+### Otras features
+- **Papelera de reciclaje**: al borrar notas/bookmarks van a la papelera
+  (soft-delete) y puedes restaurarlos o purgarlos.
+- **Modo lista / tarjetas**: toggle para ver notas y bookmarks en lista.
+- **Modo oscuro** 🌙.
+- **Ordenar por fecha** y **exportar** notas y bookmarks a Markdown.
+
 ### Interfaz
 Estética **Material 3** (estilo Jetpack Compose / Google): tipografía
 **Roboto** embebida, paleta Material, elevation, esquinas redondeadas.
@@ -144,6 +156,40 @@ cp backups/gesipan-20260818-120000.db gesipan.db
 
 ---
 
+## 🤖 MCP (organización automática con IA)
+
+Gesipan expone un **servidor MCP** en el mismo puerto, en `/mcp` (Streamable
+HTTP). Permite que agentes de IA organicen el contenido de forma automática.
+
+### Herramientas
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| `list_boards` | Lista las pizarras |
+| `create_note` | Crea una nota (con texto/etiquetas/estilo/color) |
+| `list_notes` | Lista notas de una pizarra |
+| `list_bookmarks` | Lista todos los bookmarks |
+| `add_bookmark` | Añade un bookmark (con colección y etiquetas) |
+| `organize_bookmark` | Mueve un bookmark a una colección / le asigna etiquetas |
+| `create_collection` | Crea una colección de bookmarks |
+
+### Registrarlo en Hermes
+
+```bash
+hermes config set mcp_servers.gesipan.url "http://127.0.0.1:8733/mcp"
+hermes config set mcp_servers.gesipan.timeout 180
+hermes mcp list    # debe mostrar ✓ enabled
+hermes mcp test gesipan   # ✓ Connected + tools
+```
+
+Las herramientas aparecen como `mcp_gesipan_*`. Para Claude Desktop / Cursor,
+añade `{"mcpServers":{"gesipan":{"url":"http://127.0.0.1:8733/mcp"}}}` a su config.
+
+> El endpoint `/mcp` solo acepta conexiones locales (loopback), por lo que
+> Hermes debe correr en la misma máquina, o el túnel no lo expone públicamente.
+
+---
+
 ## ⚙️ Configuración (variables de entorno)
 
 | Variable          | Defecto                | Descripción                            |
@@ -197,11 +243,12 @@ Comprueba el estado con `curl http://127.0.0.1:8733/api/llm/status`.
 ```
 src/
 ├── main.rs    Servidor axum + sirve la UI embebida (rust-embed) + configuración + backup
-├── api.rs     Rutas REST (boards, notes, connections, groups, bookmarks, export, LLM)
-├── db.rs      Capa SQLite (esquema + CRUD + migraciones + export a Markdown)
+├── api.rs     Rutas REST (boards, notes, connections, groups, bookmarks, trash, export, LLM)
+├── db.rs      Capa SQLite (esquema + CRUD + migraciones + export a Markdown + papelera)
 ├── backup.rs  Backup automático de la BD (online backup API + rotación)
 ├── llm.rs     Inferencia opcional (OpenAI-compatible, off por defecto)
 ├── meta.rs    Captura automática de metadatos de URLs (para bookmarks)
+├── mcp.rs     Servidor MCP (Streamable HTTP) para organizar con IA
 └── state.rs   Estado compartido (conexión DB + config LLM)
 web/           Frontend vanilla JS (HTML/CSS/JS) + fuentes + logo, embebido en el binario
 Dockerfile / docker-compose.yml   Despliegue en contenedor

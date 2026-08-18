@@ -23,6 +23,10 @@ rusqlite = { version = "0.32", features = ["bundled", "backup"] }
 # Embed UI estática (HTML/CSS/JS) dentro del binario
 rust-embed = "8"
 
+# MCP server (para que agentes de IA organicen notas/bookmarks automáticamente)
+rmcp = { version = "2.2", features = ["server", "macros", "transport-streamable-http-server", "schemars"] }
+schemars = "1"
+
 # HTTP client opcional para inferencia OpenAI-compatible
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 

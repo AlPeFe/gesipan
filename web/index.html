@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.3.css" />
 </head>
 <body>
 
@@ -34,13 +34,16 @@
     <svg id="connections-layer"></svg>
     <div id="world"></div>
 
-    <!-- Barra superior: búsqueda + herramientas -->
+    <!-- Barra superior: búsqueda + acciones -->
     <div id="topbar">
       <div id="search-box" class="search-box">
         <span class="search-icon">⌕</span>
         <input id="note-search" type="text" placeholder="Buscar notas por texto o etiqueta…" />
         <button id="search-clear" class="search-clear hidden">✕</button>
       </div>
+      <button id="dark-toggle" class="icon-btn" title="Modo oscuro">🌙</button>
+      <button id="view-toggle" class="icon-btn" title="Vista lista / tarjetas">☰</button>
+      <button id="trash-btn" class="icon-btn" title="Papelera">🗑️</button>
     </div>
 
     <!-- Barra de herramientas flotante -->
@@ -109,15 +112,17 @@
 
   <!-- ============ BOOKMARKS VIEW ============ -->
   <main id="bookmarks-view" class="hidden">
-    <div class="bm-topbar">
-      <h2 id="bm-collection-title">Todos los bookmarks</h2>
-      <div class="bm-search">
-        <input id="bm-search-input" type="text" placeholder="Buscar por título, descripción o etiqueta…" />
-      </div>
-      <button id="bm-add-btn" class="primary-btn">＋ Añadir link</button>
+  <div class="bm-topbar">
+    <h2 id="bm-collection-title">Todos los bookmarks</h2>
+    <div class="bm-search">
+      <input id="bm-search-input" type="text" placeholder="Buscar por título, descripción o etiqueta…" />
     </div>
-    <div id="bm-grid" class="bm-grid"></div>
-    <div id="bm-empty" class="bm-empty hidden">No hay bookmarks aquí. Añade el primero con "＋ Añadir link".</div>
+    <button id="bm-sort-btn" class="ghost-btn" title="Ordenar">⇅ Fecha</button>
+    <button id="bm-export-btn" class="ghost-btn" title="Exportar bookmarks a Markdown">⬇ .md</button>
+    <button id="bm-add-btn" class="primary-btn">＋ Añadir link</button>
+  </div>
+  <div id="bm-grid" class="bm-grid"></div>
+  <div id="bm-empty" class="bm-empty hidden">No hay bookmarks aquí. Añade el primero con "＋ Añadir link".</div>
   </main>
 
   <!-- Diálogo para pedir confirmación/nombre -->
@@ -158,6 +163,19 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- Papelera de reciclaje -->
+  <div id="trash-modal" class="modal hidden">
+    <div class="modal-card trash-card">
+      <div class="inspector-head">
+        <h3>🗑️ Papelera</h3>
+        <button id="trash-close" class="icon-btn small">✕</button>
+      </div>
+      <div id="trash-notes" class="trash-section"></div>
+      <div id="trash-bookmarks" class="trash-section"></div>
+      <div id="trash-empty" class="bm-empty hidden">La papelera está vacía.</div>
+    </div>
+  </div>
+
+  <script src="app.3.js"></script>
 </body>
 </html>

@@ -202,6 +202,26 @@ pub fn router() -> Router<AppState> {
             axum::routing::delete(delete_bookmark),
         )
         .route("/api/bookmarks/{id}/fav", post(toggle_favorite))
+        .route("/api/bookmarks/{id}/classify", post(classify_bookmark))
+        .route("/api/bookmarks/export.md", get(export_bookmarks_md))
+        // Papelera
+        .route("/api/trash", get(list_trash))
+        .route(
+            "/api/trash/notes/{id}/restore",
+            axum::routing::post(restore_trash_note),
+        )
+        .route(
+            "/api/trash/notes/{id}",
+            axum::routing::delete(purge_trash_note),
+        )
+        .route(
+            "/api/trash/bookmarks/{id}/restore",
+            axum::routing::post(restore_trash_bookmark),
+        )
+        .route(
+            "/api/trash/bookmarks/{id}",
+            axum::routing::delete(purge_trash_bookmark),
+        )
 }
 
 // ---------------------------------------------------------------------------
@@ -617,4 +637,139 @@ async fn llm_complete(
         .await
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Json(serde_json::json!({ "result": result })))
+}
+
+// ---------------------------------------------------------------------------
+// Papelera (soft-delete)
+// ---------------------------------------------------------------------------
+
+/// Contenido de la papelera: notas y bookmarks borrados.
+#[derive(serde::Serialize)]
+struct Trash {
+    notes: Vec<db::Note>,
+    bookmarks: Vec<db::Bookmark>,
+}
+
+async fn list_trash(State(st): State<AppState>) -> ApiResult<Json<Trash>> {
+    let notes = with_db(&st, |conn| db::list_trash_notes(conn))?;
+    let bookmarks = with_db(&st, |conn| db::list_trash_bookmarks(conn))?;
+    Ok(Json(Trash { notes, bookmarks }))
+}
+
+async fn restore_trash_note(State(st): State<AppState>, Path(id): Path<i64>) -> StatusCode {
+    with_db(&st, |conn| db::restore_note(conn, id)).expect("restore note");
+    StatusCode::NO_CONTENT
+}
+
+async fn purge_trash_note(State(st): State<AppState>, Path(id): Path<i64>) -> StatusCode {
+    with_db(&st, |conn| db::purge_note(conn, id)).expect("purge note");
+    StatusCode::NO_CONTENT
+}
+
+async fn restore_trash_bookmark(State(st): State<AppState>, Path(id): Path<i64>) -> StatusCode {
+    with_db(&st, |conn| db::restore_bookmark(conn, id)).expect("restore bookmark");
+    StatusCode::NO_CONTENT
+}
+
+async fn purge_trash_bookmark(State(st): State<AppState>, Path(id): Path<i64>) -> StatusCode {
+    with_db(&st, |conn| db::purge_bookmark(conn, id)).expect("purge bookmark");
+    StatusCode::NO_CONTENT
+}
+
+// ---------------------------------------------------------------------------
+// Export de bookmarks a Markdown
+// ---------------------------------------------------------------------------
+
+async fn export_bookmarks_md(
+    State(st): State<AppState>,
+) -> ApiResult<(axum::http::HeaderMap, String)> {
+    let all = with_db(&st, |conn| db::list_bookmarks(conn, None, "", false))?;
+    let collections = with_db(&st, |conn| db::list_collections(conn))?;
+
+    let mut md = String::from("# Bookmarks\n\n");
+    if all.is_empty() {
+        md.push_str("*(sin bookmarks)*\n");
+        return Ok((headers_attachment("bookmarks.md"), md));
+    }
+
+    // Agrupa por colección.
+    let uncoll: Vec<&db::Bookmark> = all.iter().filter(|b| b.collection_id.is_none()).collect();
+    if !uncoll.is_empty() {
+        md.push_str("## Sin colección\n\n");
+        for b in &uncoll {
+            md.push_str(&format!("- [{}]({})\n", b.title, b.url));
+        }
+        md.push('\n');
+    }
+    for col in &collections {
+        let items: Vec<&db::Bookmark> = all
+            .iter()
+            .filter(|b| b.collection_id == Some(col.id))
+            .collect();
+        if items.is_empty() {
+            continue;
+        }
+        md.push_str(&format!("## {}\n\n", col.name));
+        for b in &items {
+            md.push_str(&format!("- [{}]({})\n", b.title, b.url));
+        }
+        md.push('\n');
+    }
+
+    Ok((headers_attachment("bookmarks.md"), md))
+}
+
+fn headers_attachment(filename: &str) -> axum::http::HeaderMap {
+    let mut h = axum::http::HeaderMap::new();
+    h.insert(
+        axum::http::header::CONTENT_TYPE,
+        "text/markdown; charset=utf-8".parse().unwrap(),
+    );
+    h.insert(
+        axum::http::header::CONTENT_DISPOSITION,
+        format!("attachment; filename=\"{filename}\"").parse().unwrap(),
+    );
+    h
+}
+
+// ---------------------------------------------------------------------------
+// Clasificar un bookmark (usar LLM si está disponible, si no, no-op)
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct ClassifyIn {
+    #[serde(default)]
+    collection_name: String,
+    #[serde(default)]
+    tags: String,
+}
+
+async fn classify_bookmark(
+    State(st): State<AppState>,
+    Path(id): Path<i64>,
+    Json(body): Json<ClassifyIn>,
+) -> ApiResult<Json<db::Bookmark>> {
+    let mut bm = with_db(&st, |conn| db::get_bookmark(conn, id))?
+        .ok_or_else(|| not_found("bookmark not found"))?;
+
+    // Si el usuario pasa etiquetas, las aplicamos.
+    if !body.tags.trim().is_empty() {
+        bm.tags = body.tags.trim().to_string();
+    }
+
+    // Si pasa nombre de colección, la creamos/obtenemos y asignamos.
+    if !body.collection_name.trim().is_empty() {
+        let name = body.collection_name.trim().to_string();
+        let cid = with_db(&st, |conn| -> anyhow::Result<i64> {
+            let existing = db::list_collections(conn)?;
+            if let Some(c) = existing.iter().find(|c| c.name == name) {
+                return Ok(c.id);
+            }
+            Ok(db::create_collection(conn, &name)?.id)
+        })?;
+        bm.collection_id = Some(cid);
+    }
+
+    with_db(&st, |conn| db::update_bookmark(conn, &bm))?;
+    Ok(Json(bm))
 }

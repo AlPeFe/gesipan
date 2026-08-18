@@ -8,5 +8,6 @@ pub mod api;
 pub mod backup;
 pub mod db;
 pub mod llm;
+pub mod mcp;
 pub mod meta;
 pub mod state;

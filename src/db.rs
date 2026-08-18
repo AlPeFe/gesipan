@@ -36,6 +36,7 @@ pub struct Note {
     pub z: i64,        // orden de apilado (mayor = encima)
     pub tags: String,  // etiquetas separadas por comas (metadata opcional)
     pub private: bool, // si es privada (el toggle global la difumina)
+    pub created_at: String,
 }
 
 /// Conexión ("flecha") entre dos notas. `from_anchor`/`to_anchor` indican el
@@ -107,7 +108,9 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             color    TEXT NOT NULL DEFAULT 'yellow',
             z        INTEGER NOT NULL DEFAULT 0,
             tags     TEXT NOT NULL DEFAULT '',
-            private  INTEGER NOT NULL DEFAULT 0
+            private  INTEGER NOT NULL DEFAULT 0,
+            deleted  INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
         CREATE TABLE IF NOT EXISTS connections (
@@ -147,6 +150,7 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
             favicon       TEXT NOT NULL DEFAULT '',
             thumbnail     TEXT NOT NULL DEFAULT '',
             favorite      INTEGER NOT NULL DEFAULT 0,
+            deleted       INTEGER NOT NULL DEFAULT 0,
             created_at    TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
@@ -183,6 +187,25 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
         conn.execute_batch(
             "ALTER TABLE connections ADD COLUMN to_anchor TEXT NOT NULL DEFAULT 'center';",
         )?;
+    }
+
+    // Migración idempotente: columna `deleted` en notes y bookmarks (papelera).
+    let has_note_deleted = cols.iter().any(|c| c == "deleted");
+    if !has_note_deleted {
+        conn.execute_batch("ALTER TABLE notes ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;")?;
+    }
+    if !cols.iter().any(|c| c == "created_at") {
+        // SQLite prohíbe ADD COLUMN con default no-constante: usamos '' aquí.
+        conn.execute_batch(
+            "ALTER TABLE notes ADD COLUMN created_at TEXT NOT NULL DEFAULT '';",
+        )?;
+    }
+    let bm_cols: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('bookmarks')")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<Result<_, _>>()?;
+    if !bm_cols.iter().any(|c| c == "deleted") {
+        conn.execute_batch("ALTER TABLE bookmarks ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;")?;
     }
 
     Ok(())
@@ -255,13 +278,14 @@ fn row_to_note(r: &rusqlite::Row) -> rusqlite::Result<Note> {
         z: r.get(9)?,
         tags: r.get(10)?,
         private: r.get::<_, i64>(11)? != 0,
+        created_at: r.get(12)?,
     })
 }
 
 pub fn list_notes(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private
-         FROM notes WHERE board_id = ?1 ORDER BY z, id",
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at
+         FROM notes WHERE board_id = ?1 AND deleted = 0 ORDER BY z, id",
     )?;
     let rows = stmt.query_map(params![board_id], row_to_note)?;
     Ok(rows.collect::<Result<_, _>>()?)
@@ -269,7 +293,7 @@ pub fn list_notes(conn: &Connection, board_id: i64) -> anyhow::Result<Vec<Note>>
 
 pub fn get_note(conn: &Connection, id: i64) -> anyhow::Result<Option<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at
          FROM notes WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], row_to_note)?;
@@ -337,7 +361,31 @@ pub fn raise_note(conn: &Connection, id: i64) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Soft-delete: mueve la nota a la papelera (deleted = 1).
 pub fn delete_note(conn: &Connection, id: i64) -> anyhow::Result<()> {
+    conn.execute("UPDATE notes SET deleted = 1 WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+// --- Papelera de notas ---
+
+pub fn list_trash_notes(conn: &Connection) -> anyhow::Result<Vec<Note>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, board_id, x, y, width, height, text, style, color, z, tags, private, created_at
+         FROM notes WHERE deleted = 1 ORDER BY id DESC",
+    )?;
+    let rows = stmt.query_map([], row_to_note)?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+pub fn restore_note(conn: &Connection, id: i64) -> anyhow::Result<()> {
+    conn.execute("UPDATE notes SET deleted = 0 WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+/// Purga definitiva de una nota de la papelera (borra también sus conexiones).
+pub fn purge_note(conn: &Connection, id: i64) -> anyhow::Result<()> {
+    conn.execute("DELETE FROM connections WHERE from_id = ?1 OR to_id = ?1", params![id])?;
     conn.execute("DELETE FROM notes WHERE id = ?1", params![id])?;
     Ok(())
 }
@@ -646,7 +694,7 @@ pub fn list_bookmarks(
 ) -> anyhow::Result<Vec<Bookmark>> {
     let mut sql = String::from(
         "SELECT id, collection_id, url, title, excerpt, note, tags, favicon, thumbnail, favorite, created_at
-         FROM bookmarks WHERE 1=1",
+         FROM bookmarks WHERE deleted = 0",
     );
     let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
@@ -744,7 +792,29 @@ pub fn toggle_bookmark_favorite(conn: &Connection, id: i64) -> anyhow::Result<Bo
     Ok(get_bookmark(conn, id)?.expect("exists"))
 }
 
+/// Soft-delete: mueve el bookmark a la papelera (deleted = 1).
 pub fn delete_bookmark(conn: &Connection, id: i64) -> anyhow::Result<()> {
+    conn.execute("UPDATE bookmarks SET deleted = 1 WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+// --- Papelera de bookmarks ---
+
+pub fn list_trash_bookmarks(conn: &Connection) -> anyhow::Result<Vec<Bookmark>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, collection_id, url, title, excerpt, note, tags, favicon, thumbnail, favorite, created_at
+         FROM bookmarks WHERE deleted = 1 ORDER BY id DESC",
+    )?;
+    let rows = stmt.query_map([], row_to_bookmark)?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+pub fn restore_bookmark(conn: &Connection, id: i64) -> anyhow::Result<()> {
+    conn.execute("UPDATE bookmarks SET deleted = 0 WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+pub fn purge_bookmark(conn: &Connection, id: i64) -> anyhow::Result<()> {
     conn.execute("DELETE FROM bookmarks WHERE id = ?1", params![id])?;
     Ok(())
 }

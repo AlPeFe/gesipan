@@ -31,7 +31,7 @@
 //! - `state.rs`— estado compartido
 //! - `web/`    — frontend (HTML/CSS/JS), embebido con rust-embed
 
-use gesipan::{api, backup, db, llm, state};
+use gesipan::{api, backup, db, llm, mcp, state};
 
 use axum::response::IntoResponse;
 use axum::Router;
@@ -48,23 +48,32 @@ struct Asset;
 
 /// Servidor de la UI estática + API. `fallback` sirve `index.html` para rutas
 /// desconocidas (SPA-style), lo que permite recargar sin romper nada.
+/// Manda `Cache-Control: no-cache` para que Cloudflare edge (y el navegador)
+/// NO cacheen los assets: así los cambios en JS/CSS se ven al recargar.
 async fn serve_static(
     uri: axum::http::Uri,
 ) -> Result<axum::response::Response, axum::http::StatusCode> {
     let path = uri.path().trim_start_matches('/');
     let path = if path.is_empty() { "index.html" } else { path };
 
+    let no_cache = axum::http::header::CACHE_CONTROL;
     match Asset::get(path) {
         Some(content) => {
             let mime = mime_guess::from_path(path).first_or_octet_stream();
             Ok((
-                [(axum::http::header::CONTENT_TYPE, mime.to_string())],
+                [
+                    (axum::http::header::CONTENT_TYPE, mime.to_string()),
+                    (no_cache, "no-cache".to_string()),
+                ],
                 content.data,
             )
                 .into_response())
         }
         None => Ok((
-            [(axum::http::header::CONTENT_TYPE, "text/html")],
+            [
+                (axum::http::header::CONTENT_TYPE, "text/html".to_string()),
+                (no_cache, "no-cache".to_string()),
+            ],
             Asset::get("index.html")
                 .map(|c| c.data)
                 .ok_or(axum::http::StatusCode::NOT_FOUND)?,
@@ -150,9 +159,10 @@ async fn main() -> anyhow::Result<()> {
         backup_cfg.keep
     );
 
-    // API + UI. CORS habilitado por si alguien abre la UI desde otro origen.
+    // API + UI + MCP. CORS habilitado por si alguien abre la UI desde otro origen.
     let app = Router::new()
         .merge(api::router())
+        .merge(mcp::mcp_router(db.clone()))
         .fallback(serve_static)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
