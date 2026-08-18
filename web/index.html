@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <link rel="stylesheet" href="style.7.css" />
+  <link rel="stylesheet" href="style.8.css" />
 </head>
 <body>
 
@@ -43,7 +43,6 @@
         <button id="search-clear" class="search-clear hidden">✕</button>
       </div>
       <button id="dark-toggle" class="icon-btn" title="Modo oscuro">🌙</button>
-      <button id="view-toggle" class="icon-btn" title="Vista lista / tablero">☰</button>
       <button id="trash-btn" class="icon-btn" title="Papelera">🗑️</button>
     </div>
 
@@ -63,7 +62,6 @@
       <button data-type="pin" class="create-item">📌 Nota chincheta</button>
       <button data-type="private" class="create-item">👁️ Nota privada</button>
       <button data-type="group" class="create-item">▣ Grupo</button>
-      <button data-type="connect" class="create-item">⤳ Flecha / unir</button>
     </div>
 
     <div id="color-picker" class="color-picker hidden">
@@ -101,6 +99,7 @@
         <div class="swatch white" data-color="white"></div>
       </div>
       <div class="insp-buttons">
+        <button id="insp-connect" class="ghost-btn small">⤳ Unir</button>
         <button id="insp-private" class="ghost-btn small">👁️ Privada</button>
         <button id="insp-group" class="ghost-btn small">📌 Grupo</button>
         <button id="insp-delete" class="danger-btn small">🗑</button>
@@ -170,6 +169,6 @@
     </div>
   </div>
 
-  <script src="app.6.js"></script>
+  <script src="app.7.js"></script>
 </body>
 </html>
