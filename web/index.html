@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesipan · whiteboard infinito</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
-  <link rel="stylesheet" href="style.12.css" />
+  <link rel="stylesheet" href="style.13.css" />
 </head>
 <body>
 
@@ -80,7 +80,9 @@
     <div id="group-menu" class="hidden">
       <div class="insp-head">
         <div class="insp-title">Grupo</div>
-        <button id="group-menu-close" class="icon-btn small" aria-label="Cerrar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        <div class="mac-close" id="group-menu-close" title="Cerrar">
+          <span class="mc red"></span><span class="mc yellow"></span><span class="mc green"></span>
+        </div>
       </div>
       <div class="insp-row">
         <label for="group-menu-title">Título</label>
@@ -102,7 +104,9 @@
     <div id="inspector" class="hidden">
       <div class="insp-head">
         <div class="insp-title">Nota</div>
-        <button id="insp-close" class="icon-btn small" aria-label="Cerrar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        <div class="mac-close" id="insp-close" title="Cerrar">
+          <span class="mc red"></span><span class="mc yellow"></span><span class="mc green"></span>
+        </div>
       </div>
       <div class="insp-row insp-tags-row">
         <label for="insp-tags">Etiquetas</label>
@@ -189,7 +193,9 @@
     <div class="modal-card trash-card">
       <div class="inspector-head">
         <h3>🗑️ Papelera</h3>
-        <button id="trash-close" class="icon-btn small">✕</button>
+        <div class="mac-close" id="trash-close" title="Cerrar">
+          <span class="mc red"></span><span class="mc yellow"></span><span class="mc green"></span>
+        </div>
       </div>
       <div id="trash-notes" class="trash-section"></div>
       <div id="trash-bookmarks" class="trash-section"></div>
@@ -197,6 +203,6 @@
     </div>
   </div>
 
-  <script src="app.13.js"></script>
+  <script src="app.14.js"></script>
 </body>
 </html>
