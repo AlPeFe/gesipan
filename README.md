@@ -1,154 +1,151 @@
-# 📌 Gesipan (게시판)
+<p align="center">
+  <img src="web/logo.png" alt="gesipan" width="160" />
+</p>
 
-![logo](web/logo.png)
+<h1 align="center">gesipan · 게시판</h1>
 
-**Gesipan** (게시판 = "tablero de notas" en coreano) es un **whiteboard
-infinito** en tu navegador, con notas estilo **post-it** 📝 y **papel con
-chincheta** 📌, más una **pestaña de Bookmarks** estilo Raindrop 🔖. Está hecho
-en **Rust**, la interfaz está **embebida en un único ejecutable** y los datos
-viven en un fichero **SQLite** local.
+<p align="center">
+  A cozy infinite whiteboard + bookmarks manager, served from a single binary.
+</p>
 
-> Un ejecutable. Sin servidor externo. Sin Node. Sin dependencias del sistema.
-
----
-
-## ✨ Características
-
-### Whiteboard infinito
-- **Lienzo infinito** con **pan** (arrastrar el fondo) y **zoom** (rueda,
-  centrada en el cursor).
-- **Crear nota con un clic**: selecciona 📝 o 📌 en la barra inferior y haz clic
-  en el lienzo. Al crear se abre un **panel inspector** para escribir al momento.
-- **Panel inspector**: edita texto, **etiquetas (tags)**, estilo (post-it /
-  chincheta) y color de cada nota.
-- **Unir notas**: el botón ⤳ dibuja una **flecha física** entre dos notas.
-- **Grupos** ▣: un recuadro que agrupa notas. Al arrastrar el grupo se mueven
-  las notas que contiene. Redimensionable y con título.
-- **Búsqueda**: filtra las notas en pantalla por texto o etiqueta (las que no
-  coinciden se atenúan).
-- **Privacidad**: marca una nota como 🔒 privada; un **toggle global** difumina
-  (blur) las notas privadas, sin ocultarlas del todo.
-- **Múltiples pizarras**, **exportación a Markdown** legible por agentes.
-
-### Bookmarks (estilo Raindrop)
-- Guarda links con **captura automática de metadatos** (título, descripción,
-  favicon y miniatura) al añadir una URL.
-- **Colecciones**, **etiquetas**, **favoritos** ⭐ y **búsqueda**.
-- Grid **masonry** tipo Raindrop.
-
-### Inferencia opcional (OpenAI-compatible)
-Desactivada por defecto. Actívala con una variable de entorno y usa cualquier
-API compatible (OpenAI, Ollama, vLLM…).
-
-### Organización automática con IA (MCP)
-Gesipan expone un **servidor MCP** en `/mcp` para que agentes de IA (Hermes,
-Claude, Cursor…) organicen las notas y bookmarks automáticamente: crear notas,
-listar, clasificar bookmarks en colecciones y asignar etiquetas.
-
-### Otras features
-- **Papelera de reciclaje**: al borrar notas/bookmarks van a la papelera
-  (soft-delete) y puedes restaurarlos o purgarlos.
-- **Modo lista / tarjetas**: toggle para ver notas y bookmarks en lista.
-- **Modo oscuro** 🌙.
-- **Ordenar por fecha** y **exportar** notas y bookmarks a Markdown.
-
-### Interfaz
-Estética **Material 3** (estilo Jetpack Compose / Google): tipografía
-**Roboto** embebida, paleta Material, elevation, esquinas redondeadas.
+<p align="center">
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.97+-DEA584?logo=rust&logoColor=white" />
+  <img alt="Axum" src="https://img.shields.io/badge/Axum-0.8-000000?logo=axum&logoColor=white" />
+  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white" />
+  <img alt="Vanilla JS" src="https://img.shields.io/badge/UI-Vanilla%20JS-F7DF1E?logo=javascript&logoColor=black" />
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blue" />
+</p>
 
 ---
 
-## 🚀 Desplegar (ejecutar)
+## What is gesipan?
 
-### Opción A — Binario ya compilado
+**gesipan** (게시판 = "tablero de notas" en coreano) es un **whiteboard infinito**
+con notas estilo *post-it* y *papel con chincheta*, más una pestaña de
+**bookmarks** estilo Raindrop. Todo en un **único ejecutable** con la interfaz
+embebida y los datos en un fichero **SQLite** local.
+
+> Un binario. Sin servidor externo. Sin Node. Sin dependencias del sistema.
+
+## What it does
+
+- **Whiteboard infinito** — lienzo sin fin con *pan* y *zoom* centrado en el cursor.
+- **Notas post-it / chincheta** — arrastrables, redimensionables, con **etiquetas**,
+  **colores** y **estilo** elegibles.
+- **Grupos** ▣ — recuadros que agrupan notas y las mueven en conjunto; con
+  **título** y **color**. Las notas ancladas quedan recluidas dentro del grupo.
+- **Unir notas** ⤳ — flechas orgánicas dibujadas a mano, de **punto de anclaje a
+  punto de anclaje**.
+- **Privacidad** 🙈 — las notas privadas se difuminan (blur del contenido); un
+  toggle global las revela u oculta.
+- **Bookmarks estilo Raindrop** — captura automática de metadatos (título,
+  descripción, favicon, miniatura), **colecciones**, **favoritos**, **tags** y
+  búsqueda, en **lista con detalle visual**.
+- **Papelera de reciclaje** — al borrar, notas y bookmarks van a la papelera
+  (soft-delete) y se pueden restaurar o purgar.
+- **MCP server** 🤖 — para que agentes de IA organicen el contenido automáticamente.
+- **Backup automático** de la BD SQLite (consistente, con rotación).
+- **Múltiples boards** y **exportación a Markdown** legible por agentes.
+
+## How to use it
+
+1. **Arranca** `gesipan` (o `target/release/gesipan.exe`).
+2. Abre **http://127.0.0.1:8733** en el navegador.
+3. Pulsa el botón **＋** de la barra inferior para crear una nota, grupo, etc.
+4. En la pestaña **Bookmarks**, añade links con **＋** (descubre metadatos
+   automáticamente).
+
+Para acceder desde la LAN: `GESIPAN_HOST=0.0.0.0` y abre el puerto `8733`.
+
+## Tech stack
+
+| Capa        | Tecnología |
+|-------------|-----------|
+| Backend     | Rust + axum (HTTP) + rusqlite (SQLite **bundled**) |
+| Frontend    | HTML/CSS/JS **vanilla**, embebido con rust-embed |
+| UI          | Estética **editorial** (Plus Jakarta Sans), temas claro/oscuro |
+| Persistencia| SQLite (un solo fichero `.db`) |
+
+## Screenshots
+
+<p align="center">
+  <em>Whiteboard infinito · notas, grupos, flechas y privacidad.</em>
+</p>
+
+---
+
+## Deployment
+
+### Option A — Prebuilt binary
 
 ```bash
 gesipan
 # → Gesipan sirviendo en http://127.0.0.1:8733
 ```
 
-Abre la URL en el navegador. La primera vez se crea una pizarra de ejemplo y la
-base de datos `gesipan.db`.
-
-### Opción B — Compilar desde el código
+### Option B — Build from source
 
 ```bash
 cargo build --release
-# → target/release/gesipan.exe   (un único ejecutable)
+# → target/release/gesipan.exe   (a single binary)
 ./target/release/gesipan
 ```
 
-La primera compilación tarda un poco (compila SQLite en C). Las siguientes son
-rápidas.
-
-### Exponerla en la red local (LAN)
+### Expose on the LAN
 
 ```bash
 GESIPAN_HOST=0.0.0.0 gesipan
 ```
 
-Abre el puerto `8733` (TCP) en el firewall de Windows. En un perfil de red
-*Private* o *Public*:
+Open TCP port `8733` in the firewall:
 
 ```powershell
 New-NetFirewallRule -DisplayName "Gesipan Local" -Direction Inbound -Protocol TCP -LocalPort 8733 -Action Allow -Profile Any
 ```
 
-Después accede desde otros dispositivos con `http://<IP-del-equipo>:8733`.
-
-### Como servicio al inicio (Windows)
-
-Regístrala como tarea programada para que arranque sola al iniciar sesión:
+### Run as a Windows startup service
 
 ```powershell
-$action = New-ScheduledTaskAction -Execute "C:\ruta\a\gesipan.exe"
+$action = New-ScheduledTaskAction -Execute "C:\path\to\gesipan.exe"
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 Register-ScheduledTask -TaskName "Gesipan" -Action $action -Trigger $trigger -Force
 ```
 
-### Con Docker (contenedor)
+### Docker
 
-Gesipan está **dockerizada**. La imagen final es mínima (solo el binario, sin
-Rust), y la BD + los backups se guardan en un volumen persistente.
+Gesipan is **dockerized**. The final image is minimal (only the binary), and the
+DB + backups live in a persistent volume.
 
 ```bash
-# Construir y arrancar
 docker compose up -d --build
-
-# Abrir http://localhost:8733   (o la IP del host desde la LAN)
+# → http://localhost:8733   (or the host IP from the LAN)
 ```
 
-Los datos viven en el volumen `gesipan-data` (`/data` dentro del contenedor), por
-lo que **sobreviven** a `docker compose down` y a recrear el contenedor.
-
-Para personalizar (puerto, inferencia, cadencia de backup) edita
-`docker-compose.yml`.
+Data lives in the `gesipan-data` volume (`/data`), so it **survives**
+`docker compose down` and container recreation.
 
 ---
 
-## 💾 Backup automático de la base de datos
+## Automatic database backup
 
-Gesipan hace **backup de la BD SQLite automáticamente**: una copia al arrancar
-y luego cada cierto intervalo, sin detener el servicio. Usa la *online backup
-API* de SQLite, que produce una copia **consistente** incluso con WAL activo.
+Gesipan backs up its SQLite DB automatically: one copy on startup, then every
+interval — without stopping the service. It uses SQLite's *online backup API*,
+so the copy is **consistent** even with WAL active.
 
-| Variable               | Defecto        | Descripción                           |
-|------------------------|----------------|---------------------------------------|
-| `GESIPAN_BACKUP_DIR`   | `backups/`     | Carpeta donde se guardan los backups  |
-| `GESIPAN_BACKUP_EVERY` | `3600`         | Segundos entre backups (por defecto 1h) |
-| `GESIPAN_BACKUP_KEEP`  | `24`           | Nº máximo de backups que se conservan |
+| Variable             | Default     | Description                          |
+|----------------------|-------------|--------------------------------------|
+| `GESIPAN_BACKUP_DIR` | `backups/`  | Folder where backups are written     |
+| `GESIPAN_BACKUP_EVERY`| `3600`     | Seconds between backups (1h)         |
+| `GESIPAN_BACKUP_KEEP`| `24`        | Max number of backups to keep        |
 
-Los ficheros se llaman `gesipan-YYYYMMDD-HHMMSS.db`. Cuando se supera `KEEP`,
-se borran los más antiguos (rotación automática).
+Files are named `gesipan-YYYYMMDD-HHMMSS.db`. Old ones are pruned (rotation).
 
-### Dónde está la BD
-- **Local**: por defecto `gesipan.db` en el directorio de trabajo, o donde digas
-  con `GESIPAN_DATA`.
-- **Docker**: `/data/gesipan.db`, con los backups en `/data/backups` (volumen
-  `gesipan-data`).
+### Where the DB lives
 
-### Restaurar un backup
-Detén la app y sustituye la BD por una copia de `backups/`:
+- **Local**: `gesipan.db` in the working directory (or `GESIPAN_DATA`).
+- **Docker**: `/data/gesipan.db`, backups in `/data/backups` (volume `gesipan-data`).
+
+### Restore a backup
 
 ```bash
 cp backups/gesipan-20260818-120000.db gesipan.db
@@ -156,183 +153,176 @@ cp backups/gesipan-20260818-120000.db gesipan.db
 
 ---
 
-## 🤖 MCP (organización automática con IA)
+## MCP (AI-driven organization)
 
-Gesipan expone un **servidor MCP** en el mismo puerto, en `/mcp` (Streamable
-HTTP). Permite que agentes de IA organicen el contenido de forma automática.
+Gesipan exposes an **MCP server** on the same port at `/mcp` (Streamable HTTP),
+so AI agents can organize content automatically.
 
-### Herramientas
+### Tools
 
-| Herramienta | Descripción |
-|-------------|-------------|
-| `list_boards` | Lista las pizarras |
-| `create_note` | Crea una nota (con texto/etiquetas/estilo/color) |
-| `list_notes` | Lista notas de una pizarra |
-| `list_bookmarks` | Lista todos los bookmarks |
-| `add_bookmark` | Añade un bookmark (con colección y etiquetas) |
-| `organize_bookmark` | Mueve un bookmark a una colección / le asigna etiquetas |
-| `create_collection` | Crea una colección de bookmarks |
+| Tool               | Description                                  |
+|--------------------|----------------------------------------------|
+| `list_boards`      | List all boards                              |
+| `create_note`      | Create a note (text/tags/style/color)        |
+| `list_notes`       | List notes in a board                        |
+| `list_bookmarks`   | List all bookmarks                           |
+| `add_bookmark`     | Add a bookmark (collection + tags)           |
+| `organize_bookmark`| Move a bookmark / set its tags               |
+| `create_collection`| Create a bookmark collection                 |
 
-### Registrarlo en Hermes
+### Register it in Hermes
 
 ```bash
 hermes config set mcp_servers.gesipan.url "http://127.0.0.1:8733/mcp"
 hermes config set mcp_servers.gesipan.timeout 180
-hermes mcp list    # debe mostrar ✓ enabled
+hermes mcp list    # should show ✓ enabled
 hermes mcp test gesipan   # ✓ Connected + tools
 ```
 
-Las herramientas aparecen como `mcp_gesipan_*`. Para Claude Desktop / Cursor,
-añade `{"mcpServers":{"gesipan":{"url":"http://127.0.0.1:8733/mcp"}}}` a su config.
+Tools appear as `mcp_gesipan_*`. For Claude Desktop / Cursor, add
+`{"mcpServers":{"gesipan":{"url":"http://127.0.0.1:8733/mcp"}}}` to their config.
 
-> El endpoint `/mcp` solo acepta conexiones locales (loopback), por lo que
-> Hermes debe correr en la misma máquina, o el túnel no lo expone públicamente.
+> `/mcp` only accepts local (loopback) connections, so Hermes must run on the
+> same machine, or the tunnel must not expose it publicly.
 
 ---
 
-## ⚙️ Configuración (variables de entorno)
+## Configuration (env vars)
 
-| Variable          | Defecto                | Descripción                            |
-|-------------------|------------------------|----------------------------------------|
-| `GESIPAN_PORT`    | `8733`                 | Puerto HTTP                            |
-| `GESIPAN_HOST`    | `127.0.0.1`            | IP a la que escuchar (`0.0.0.0` = red) |
-| `GESIPAN_DATA`    | `gesipan.db`           | Ruta del fichero SQLite                |
-| `GESIPAN_BACKUP_DIR` | `backups/`          | Carpeta de backups                     |
-| `GESIPAN_BACKUP_EVERY` | `3600`            | Segundos entre backups (1h)            |
-| `GESIPAN_BACKUP_KEEP` | `24`               | Copias de backup que se conservan      |
-| `OPENAI_API_KEY`  | *(vacío → off)*        | Activa inferencia                      |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL de la API compatible     |
-| `OPENAI_MODEL`    | `gpt-4o-mini`          | Modelo a usar                          |
+| Variable            | Default                   | Description                         |
+|---------------------|---------------------------|-------------------------------------|
+| `GESIPAN_PORT`      | `8733`                    | HTTP port                           |
+| `GESIPAN_HOST`      | `127.0.0.1`               | Listen address (`0.0.0.0` = LAN)    |
+| `GESIPAN_DATA`      | `gesipan.db`              | SQLite file path                    |
+| `GESIPAN_BACKUP_DIR`| `backups/`                | Backup folder                       |
+| `GESIPAN_BACKUP_EVERY`| `3600`                  | Seconds between backups (1h)        |
+| `GESIPAN_BACKUP_KEEP`| `24`                     | Backups to keep                     |
+| `OPENAI_API_KEY`    | *(empty → off)*            | Enables inference                   |
+| `OPENAI_BASE_URL`   | `https://api.openai.com/v1` | Compatible API base URL            |
+| `OPENAI_MODEL`      | `gpt-4o-mini`             | Model to use                        |
 
-### Inferencia
+### Inference
 
 ```bash
 # OpenAI
 OPENAI_API_KEY=sk-... gesipan
 
-# Ollama local
+# Local Ollama
 OPENAI_API_KEY=ollama OPENAI_BASE_URL=http://localhost:11434/v1 OPENAI_MODEL=llama3 gesipan
 ```
 
-Comprueba el estado con `curl http://127.0.0.1:8733/api/llm/status`.
+Check status with `curl http://127.0.0.1:8733/api/llm/status`.
 
 ---
 
-## 🖱️ Uso
+## Usage
 
-| Acción | Gestos / controles |
-|--------|--------------------|
-| **Mover lienzo** | Arrastrar el fondo vacío |
-| **Zoom** | Rueda del ratón, o botones ＋/－ de la barra inferior |
-| **Crear nota** | Botón **＋** de la barra inferior (coloca la nota en el centro de la vista y abre el inspector). Elige estilo 📝/📌 para las nuevas |
-| **Editar / tags / color / privacidad** | **Clic en la nota** (abre el panel inspector) |
-| **Mover nota** | Arrastrarla por cualquier parte de su cuerpo |
-| **Unir notas** | Botón ⤳ (toggle) y clic en **puntos de anclaje**: uno en la 1ª nota, otro en la 2ª |
-| **Grupo** | Botón ▣ (toggle) y clic en el lienzo. Arrastra para mover (las notas ancladas se mueven), esquina para redimensionar |
-| **Buscar notas** | Barra superior (por texto o etiqueta) |
-| **Privacidad** | 🔒 en el inspector + toggle de la barra superior |
-| **Borrar** | 🗑 en la nota, o seleccionar + tecla `Supr` |
-| **Pizarras** | Crear (＋), renombrar (doble clic), borrar (✕) en la sidebar |
-| **Exportar .md** | Botón `⬇ .md` de la sidebar |
-| **Bookmarks** | Pestaña 🔖 de la sidebar |
+| Action                  | How                                             |
+|-------------------------|-------------------------------------------------|
+| **Move canvas**         | Drag the empty background                       |
+| **Zoom**                | Mouse wheel, or ＋/－ in the bottom bar          |
+| **Create**              | Press **＋**, pick the type, click on the canvas |
+| **Edit / tags / color** | Click a note (contextual popup)                 |
+| **Move a note**         | Drag it by its body                             |
+| **Join notes**          | Open a note → **⤳ Unir**, drag anchor→anchor    |
+| **Group**               | Create from **＋**; select it to edit title/color|
+| **Privacy**             | 👁️ in the toolbar (create private) + global toggle |
+| **Delete**              | 🗑 in the note, or select + `Supr`              |
+| **Boards**              | Create (＋), rename (dblclick), delete (✕)      |
+| **Export .md**          | `⬇ .md` button in the sidebar                   |
+| **Bookmarks**           | **Bookmarks** tab in the sidebar                |
 
 ---
 
-## 📐 Cómo está hecho (arquitectura)
+## How it's built (architecture)
 
 ```
 src/
-├── main.rs    Servidor axum + sirve la UI embebida (rust-embed) + configuración + backup
-├── api.rs     Rutas REST (boards, notes, connections, groups, bookmarks, trash, export, LLM)
-├── db.rs      Capa SQLite (esquema + CRUD + migraciones + export a Markdown + papelera)
-├── backup.rs  Backup automático de la BD (online backup API + rotación)
-├── llm.rs     Inferencia opcional (OpenAI-compatible, off por defecto)
-├── meta.rs    Captura automática de metadatos de URLs (para bookmarks)
-├── mcp.rs     Servidor MCP (Streamable HTTP) para organizar con IA
-└── state.rs   Estado compartido (conexión DB + config LLM)
-web/           Frontend vanilla JS (HTML/CSS/JS) + fuentes + logo, embebido en el binario
-Dockerfile / docker-compose.yml   Despliegue en contenedor
+├── main.rs    axum server + serves embedded UI (rust-embed) + config + backup
+├── api.rs     REST routes (boards, notes, connections, groups, bookmarks, trash, export, LLM)
+├── db.rs      SQLite layer (schema + CRUD + migrations + Markdown export + trash)
+├── backup.rs  Automatic DB backup (online backup API + rotation)
+├── llm.rs     Optional inference (OpenAI-compatible, off by default)
+├── meta.rs    Automatic URL metadata capture (bookmarks)
+├── mcp.rs     MCP server (Streamable HTTP) for AI organization
+└── state.rs   Shared state (DB connection + LLM config)
+web/           Vanilla JS frontend (HTML/CSS/JS) + fonts + logo, embedded in the binary
+Dockerfile / docker-compose.yml   Container deployment
 ```
 
-### Stack
-- **Backend**: [Rust](https://www.rust-lang.org/) + [axum](https://github.com/tokio-rs/axum) (HTTP) + [rusqlite](https://github.com/rusqlite/rusqlite) con SQLite **bundled**.
-- **Frontend**: HTML/CSS/JS **vanilla** (cero dependencias), embebido con [rust-embed](https://github.com/pyrossh/rust-embed).
-- **UI**: Material 3 con tipografía **Roboto** embebida.
-- **Persistencia**: SQLite (un solo fichero `.db`).
+### Why a single executable
 
-### Por qué un solo ejecutable
-La UI se compila *dentro* del binario con `rust-embed`, y SQLite se compila en C
-con la feature `bundled` de `rusqlite`. Resultado: **no hay que instalar nada**
-en el equipo donde se ejecuta — copias el `.exe` y funciona.
+The UI is compiled *inside* the binary with `rust-embed`, and SQLite is compiled
+in C with rusqlite's `bundled` feature. Result: **nothing to install** on the
+target machine — copy the `.exe` and it works.
 
 ### API
 
-| Método | Ruta                              | Descripción                       |
-|--------|-----------------------------------|-----------------------------------|
-| GET    | `/api/boards`                     | Lista pizarras                    |
-| POST   | `/api/boards`                     | Crea pizarra `{name}`             |
-| PATCH  | `/api/boards/{id}`                | Renombra `{name}`                 |
-| DELETE | `/api/boards/{id}`                | Borra pizarra                     |
-| GET    | `/api/boards/{id}/data`           | Pizarra + notas + conexiones + grupos |
-| GET    | `/api/boards/{id}/export.md`      | Exporta a Markdown                |
-| POST   | `/api/boards/{id}/notes`          | Crea nota `{x,y,style,color}`     |
-| PATCH  | `/api/notes/{id}`                 | Actualiza nota (texto/tags/color/private…) |
-| POST   | `/api/notes/{id}/raise`           | Trae al frente                    |
-| DELETE | `/api/notes/{id}`                 | Borra nota                        |
-| POST   | `/api/boards/{id}/connections`    | Crea conexión `{from_id,to_id}`   |
-| DELETE | `/api/connections/{id}`           | Borra conexión                    |
-| POST   | `/api/boards/{id}/groups`         | Crea grupo `{x,y}`                |
-| PATCH  | `/api/groups/{id}`                | Actualiza grupo (posición/tamaño/título) |
-| DELETE | `/api/groups/{id}`                | Borra grupo                       |
-| POST   | `/api/llm/complete`               | Inferencia (solo si config.)      |
-| GET    | `/api/llm/status`                 | ¿Inferencia disponible?           |
-| GET    | `/api/collections`                | Lista colecciones (bookmarks)     |
-| POST   | `/api/collections`                | Crea colección `{name}`           |
-| DELETE | `/api/collections/{id}`           | Borra colección                   |
-| GET    | `/api/bookmarks`                  | Lista bookmarks (filtros)         |
-| POST   | `/api/bookmarks`                  | Crea bookmark `{url,...}`         |
-| POST   | `/api/bookmarks/fetch`            | Descubre metadatos de una URL     |
-| DELETE | `/api/bookmarks/{id}`             | Borra bookmark                    |
-| POST   | `/api/bookmarks/{id}/fav`         | Alterna favorito                  |
+| Method | Route                          | Description                          |
+|--------|--------------------------------|--------------------------------------|
+| GET    | `/api/boards`                  | List boards                          |
+| POST   | `/api/boards`                  | Create board `{name}`                |
+| PATCH  | `/api/boards/{id}`             | Rename `{name}`                      |
+| DELETE | `/api/boards/{id}`             | Delete board                         |
+| GET    | `/api/boards/{id}/data`        | Board + notes + connections + groups |
+| GET    | `/api/boards/{id}/export.md`   | Export to Markdown                   |
+| POST   | `/api/boards/{id}/notes`       | Create note `{x,y,style,color}`      |
+| PATCH  | `/api/notes/{id}`              | Update note (text/tags/color/private…) |
+| POST   | `/api/notes/{id}/raise`        | Bring to front                        |
+| DELETE | `/api/notes/{id}`              | Delete note                           |
+| POST   | `/api/boards/{id}/connections` | Create connection `{from_id,to_id}`  |
+| DELETE | `/api/connections/{id}`        | Delete connection                    |
+| POST   | `/api/boards/{id}/groups`      | Create group `{x,y}`                 |
+| PATCH  | `/api/groups/{id}`             | Update group (pos/size/title/color)  |
+| DELETE | `/api/groups/{id}`             | Delete group                         |
+| POST   | `/api/llm/complete`            | Inference (only if configured)       |
+| GET    | `/api/llm/status`              | Is inference available?              |
+| GET    | `/api/collections`             | List bookmark collections            |
+| POST   | `/api/collections`             | Create collection `{name}`           |
+| DELETE | `/api/collections/{id}`        | Delete collection                    |
+| GET    | `/api/bookmarks`               | List bookmarks (filters)             |
+| POST   | `/api/bookmarks`               | Create bookmark `{url,...}`          |
+| POST   | `/api/bookmarks/fetch`         | Discover URL metadata                |
+| DELETE | `/api/bookmarks/{id}`          | Delete bookmark                      |
+| POST   | `/api/bookmarks/{id}/fav`      | Toggle favorite                      |
 
-### Modelo de datos
+### Data model
 
-- **boards** — pizarras (lienzos independientes).
-- **notes** — notas con posición `(x, y)` en coordenadas *de mundo*, tamaño,
-  texto, `style` (`postit`/`pin`), `color`, orden `z`, `tags` y `private`.
-- **connections** — flechas que unen dos notas.
-- **groups** — recuadros que agrupan un conjunto de notas.
-- **bookmark_collections / bookmarks** — colecciones y links (estilo Raindrop).
+- **boards** — independent canvases.
+- **notes** — notes with world-coordinate position `(x,y)`, size, text,
+  `style` (`postit`/`pin`), `color`, `z`-order, `tags`, `private` and optional `group_id`.
+- **connections** — arrows joining two notes (anchor→anchor).
+- **groups** — boxes that group notes (with `title` and `color`).
+- **bookmark_collections / bookmarks** — collections and links (Raindrop-style).
 
-Las posiciones se guardan en coordenadas de mundo (no de pantalla), por lo que
-son estables ante cambios de zoom.
-
----
-
-## 🧩 Ampliar
-
-El frontend es vanilla JS a propósito (cero dependencias → binario limpio). El
-backend usa `rusqlite` con SQLite *bundled*, así que no hay dependencias del
-sistema. Para añadir features: nuevas rutas en `api.rs`, nuevas consultas en
-`db.rs`, y su botón/handler en `web/`.
-
-El `app.js` organiza el código por secciones comentadas (cámara, notas, grupos,
-conexiones, búsqueda, privacidad, inspector, bookmarks) para que sea fácil de
-leer y extender.
+Positions are stored in *world* coordinates (not screen), so they stay stable
+across zoom changes.
 
 ---
 
-## 🧪 Tests
+## Extending
+
+The frontend is deliberately vanilla JS (zero dependencies → clean binary). The
+backend uses `rusqlite` with SQLite *bundled*, so there are no system
+dependencies. To add features: new routes in `api.rs`, new queries in `db.rs`,
+and their button/handler in `web/`.
+
+`app.js` organizes the code by commented sections (camera, notes, groups,
+connections, search, privacy, inspector, bookmarks) for easy reading and extending.
+
+---
+
+## Tests
 
 ```bash
 cargo test
 ```
 
-Los tests de integración arrancan la API con una BD en memoria y comprueban el
-flujo completo (pizarras, notas, conexiones, grupos y export a Markdown).
+Integration tests boot the API with an in-memory DB and exercise the full flow
+(boards, notes, connections, groups, and Markdown export).
 
 ---
 
-## 📄 Licencia
+## License
 
 MIT

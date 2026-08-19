@@ -1,67 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f3eeff"/>
-      <stop offset="1" stop-color="#e6ddff"/>
-    </linearGradient>
-    <linearGradient id="postit" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff3a0"/>
-      <stop offset="1" stop-color="#f8e359"/>
-    </linearGradient>
-    <linearGradient id="pin" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff9a9a"/>
-      <stop offset="1" stop-color="#e5484d"/>
+      <stop offset="0" stop-color="#ffd1d6"/>
+      <stop offset="1" stop-color="#f9b8c2"/>
     </linearGradient>
   </defs>
 
-  <!-- Fondo redondeado (app icon) -->
+  <!-- Fondo rosa pastel -->
   <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
 
-  <!-- Post-it lateral izquierdo -->
-  <g transform="rotate(-12 150 250)">
-    <rect x="90" y="190" width="130" height="130" rx="10" fill="#cfe5ff"/>
-    <line x1="96" y1="206" x2="214" y2="206" stroke="#a8cdf7" stroke-width="6" stroke-linecap="round"/>
-    <line x1="96" y1="230" x2="200" y2="230" stroke="#a8cdf7" stroke-width="6" stroke-linecap="round"/>
-    <line x1="96" y1="254" x2="180" y2="254" stroke="#a8cdf7" stroke-width="6" stroke-linecap="round"/>
-  </g>
+  <!-- Tablero blanco redondeado -->
+  <rect x="132" y="132" width="248" height="248" rx="36" fill="#fff"
+        style="filter: drop-shadow(0 12px 24px rgba(200,90,110,.28))"/>
 
-  <!-- Post-it lateral derecho -->
-  <g transform="rotate(10 380 300)">
-    <rect x="320" y="250" width="120" height="120" rx="10" fill="#d9f5c9"/>
-    <line x1="326" y1="266" x2="430" y2="266" stroke="#b0e29a" stroke-width="6" stroke-linecap="round"/>
-    <line x1="326" y1="290" x2="404" y2="290" stroke="#b0e29a" stroke-width="6" stroke-linecap="round"/>
-  </g>
+  <!-- Check rosa (símbolo simple) -->
+  <path d="M214 268 l36 36 l62-72" fill="none" stroke="#f06a86" stroke-width="30"
+        stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Post-it principal con carita -->
-  <g transform="rotate(3 256 240)">
-    <rect x="168" y="120" width="176" height="200" rx="14" fill="url(#postit)" filter="drop-shadow(0 10px 18px rgba(60,45,20,0.18))"/>
-    <!-- pliegue superior -->
-    <path d="M168 134 Q256 172 344 134 L344 120 Q256 150 168 120 Z" fill="#ffe27a" opacity="0.9"/>
-    <!-- carita kawaii -->
-    <circle cx="232" cy="210" r="11" fill="#3a3226"/>
-    <circle cx="280" cy="210" r="11" fill="#3a3226"/>
-    <!-- brillo de los ojos -->
-    <circle cx="235" cy="206" r="3.5" fill="#fff"/>
-    <circle cx="283" cy="206" r="3.5" fill="#fff"/>
-    <!-- sonrisa -->
-    <path d="M232 240 Q256 266 280 240" stroke="#3a3226" stroke-width="6" fill="none" stroke-linecap="round"/>
-    <!-- mejillas -->
-    <ellipse cx="218" cy="238" rx="9" ry="5" fill="#ffb3b3" opacity="0.7"/>
-    <ellipse cx="294" cy="238" rx="9" ry="5" fill="#ffb3b3" opacity="0.7"/>
-    <!-- líneas de texto -->
-    <line x1="190" y1="288" x2="322" y2="288" stroke="#d8c25a" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
-    <line x1="190" y1="302" x2="290" y2="302" stroke="#d8c25a" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
-  </g>
-
-  <!-- Chincheta centrada sobre el post-it -->
-  <g transform="rotate(-8 256 132)">
-    <rect x="246" y="120" width="20" height="26" rx="4" fill="#fff" stroke="#ddd" stroke-width="2"/>
-    <circle cx="256" cy="122" r="12" fill="url(#pin)" stroke="#c9353a" stroke-width="2"/>
-    <circle cx="252" cy="118" r="4" fill="#ffd0d0"/>
-  </g>
-
-  <!-- Corazoncito -->
-  <g transform="rotate(-8 380 140)">
-    <path d="M356 140 a16 16 0 0 1 30 0 a16 16 0 0 1 30 0 q0 24 -30 40 q-30 -16 -30 -40 z" fill="#ff7ab0"/>
-  </g>
+  <!-- Chincheta rosa decorativa -->
+  <circle cx="356" cy="168" r="14" fill="#f06a86"/>
 </svg>
